@@ -18,7 +18,7 @@ public class FlySystem : JobComponentSystem
 
     protected override JobHandle OnUpdate(JobHandle deps)
     {
-        var job = new FlyUpdateJob() { dt = UnityEngine.Time.time };
+        var job = new FlyUpdateJob() { dt = UnityEngine.Time.deltaTime };
         return job.Schedule(this, 64, deps);
     }
 }

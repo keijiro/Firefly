@@ -1,8 +1,8 @@
 {
   "dependencies": {
-    "com.unity.incrementalcompiler": "0.0.40",
-    "com.unity.entities": "0.0.12-preview.1",
-    "com.unity.package-manager-ui": "1.9.3"
+    "com.unity.incrementalcompiler": "0.0.41",
+    "com.unity.entities": "0.0.11",
+    "com.unity.package-manager-ui": "1.9.8"
   },
   "registry": "https://staging-packages.unity.com"
 }
