@@ -1,0 +1,4 @@
+[submodule "Packages/jp.keijiro.klak.ndi"]
+	path = Packages/jp.keijiro.klak.ndi
+	url = git@github.com:keijiro/KlakNDI.git
+	branch = upm
