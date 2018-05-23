@@ -1,5 +1,6 @@
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 using System.Collections.Generic;
 
@@ -14,9 +15,12 @@ class FlySpawnerSystem : ComponentSystem
 
     protected override void OnCreateManager(int capacity)
     {
-        _group = GetComponentGroup(typeof(FlySpawner));
+        _group = GetComponentGroup(
+            typeof(FlySpawner), typeof(Position)
+        );
+
         _flyArchetype = EntityManager.CreateArchetype(
-            typeof(Fly), typeof(Position)
+            typeof(Fly), typeof(Facet), typeof(Position)
         );
     }
 
@@ -24,13 +28,19 @@ class FlySpawnerSystem : ComponentSystem
     {
         // Enumerate all the spawners.
         EntityManager.GetAllUniqueSharedComponentDatas(_spawners);
-        for (var i = 0; i < _spawners.Count; i++)
+        foreach (var spawner in _spawners)
         {
-            _group.SetFilter(_spawners[i]);
+            // Skip if it has no data.
+            if (spawner.templateMesh == null) continue;
+
+            // Retrieve the mesh data.
+            var vertices = spawner.templateMesh.vertices;
+            var indices = spawner.templateMesh.triangles;
 
             // Get a copy of the entity array.
             // Don't directly use the iterator -- we're going to remove
-            // the buffer components, and it will invalidate the iterator.
+            // the spawner components, and it will invalidate the iterator.
+            _group.SetFilter(spawner);
             var iterator = _group.GetEntityArray();
             var entities = new NativeArray<Entity>(iterator.Length, Allocator.Temp);
             iterator.CopyTo(entities);
@@ -38,10 +48,27 @@ class FlySpawnerSystem : ComponentSystem
             // Instantiate flies along with the spawner entities.
             for (var j = 0; j < entities.Length; j++)
             {
-                foreach (var v in _spawners[i].templateMesh.vertices)
+                // Retrieve the position data.
+                var position = EntityManager.GetComponentData<Position>(entities[j]).Value;
+
+                for (var vi = 0; vi < indices.Length; vi += 3)
                 {
+                    var v1 = (float3)vertices[indices[vi + 0]];
+                    var v2 = (float3)vertices[indices[vi + 1]];
+                    var v3 = (float3)vertices[indices[vi + 2]];
+                    var vc = (v1 + v2 + v3) / 3;
+
                     var fly = EntityManager.CreateEntity(_flyArchetype);
-                    EntityManager.SetComponentData(fly, new Position { Value = v });
+
+                    EntityManager.SetComponentData(fly, new Facet {
+                        Vertex1 = v1 - vc,
+                        Vertex2 = v2 - vc,
+                        Vertex3 = v3 - vc
+                    });
+
+                    EntityManager.SetComponentData(fly, new Position {
+                        Value = position + vc
+                    });
                 }
 
                 // Remove the spawner component from the entity.

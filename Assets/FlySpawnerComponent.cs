@@ -1,10 +1,9 @@
 ﻿using Unity.Entities;
-using UnityEngine;
 
 [System.Serializable]
 struct FlySpawner : ISharedComponentData
 {
-    public Mesh templateMesh;
+    public UnityEngine.Mesh templateMesh;
 }
 
 class FlySpawnerComponent : SharedComponentDataWrapper<FlySpawner> {}
