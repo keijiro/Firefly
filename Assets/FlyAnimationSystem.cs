@@ -38,42 +38,38 @@ public class FlyAnimationSystem : JobComponentSystem
         }
     }
 
-    List<FlyRenderer> _rendererDatas = new List<FlyRenderer>();
+    List<FlyRenderer> _renderers = new List<FlyRenderer>();
     ComponentGroup _flyGroup;
 
     protected override void OnCreateManager(int capacity)
     {
         _flyGroup = GetComponentGroup(
-            typeof(Fly), typeof(Facet), typeof(Position),
-            typeof(FlyRenderer), typeof(SharedGeometryData)
+            typeof(Fly), typeof(Facet), typeof(Position), typeof(FlyRenderer)
         );
     }
 
     protected override JobHandle OnUpdate(JobHandle deps)
     {
-        EntityManager.GetAllUniqueSharedComponentDatas(_rendererDatas);
+        EntityManager.GetAllUniqueSharedComponentDatas(_renderers);
 
-        foreach (var rendererData in _rendererDatas)
+        foreach (var renderer in _renderers)
         {
-            if (rendererData.material == null) continue;
+            if (renderer.MeshInstance == null) continue;
 
-            _flyGroup.SetFilter(rendererData);
-
-            var head = _flyGroup.GetEntityArray()[0];
-            var geometry = EntityManager.GetSharedComponentData<SharedGeometryData>(head);
+            _flyGroup.SetFilter(renderer);
 
             var job = new ConstructionJob() {
                 Flies = _flyGroup.GetComponentDataArray<Fly>(),
                 Facets = _flyGroup.GetComponentDataArray<Facet>(),
                 Positions = _flyGroup.GetComponentDataArray<Position>(),
-                Vertices = geometry.Vertices,
-                Normals = geometry.Normals
+                Vertices = renderer.Vertices,
+                Normals = renderer.Normals
             };
 
             deps = job.Schedule(_flyGroup.CalculateLength(), 64, deps);
         }
 
-        _rendererDatas.Clear();
+        _renderers.Clear();
 
         return deps;
     }

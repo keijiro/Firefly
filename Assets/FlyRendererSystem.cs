@@ -3,11 +3,10 @@ using Unity.Entities;
 using Unity.Mathematics;
 using System.Collections.Generic;
 
-[UpdateBefore(typeof(FlyAnimationSystem))]
 public class FlyRendererSystem : ComponentSystem
 {
-    List<FlyRenderer> _rendererDatas = new List<FlyRenderer>();
-    ComponentGroup _rendererGroup;
+    List<FlyRenderer> _renderers = new List<FlyRenderer>();
+    ComponentGroup _dependency; // used just for dependency tracking
 
     UnityEngine.Vector3[] _managedVertexArray;
     UnityEngine.Vector3[] _managedNormalArray;
@@ -15,15 +14,13 @@ public class FlyRendererSystem : ComponentSystem
 
     protected override void OnCreateManager(int capacity)
     {
-        _rendererGroup = GetComponentGroup(
-            typeof(FlyRenderer), typeof(SharedGeometryData)
-        );
+        _dependency = GetComponentGroup(typeof(Fly), typeof(FlyRenderer));
 
-        _managedVertexArray = new UnityEngine.Vector3[SharedGeometryData.kMaxVertices];
-        _managedNormalArray = new UnityEngine.Vector3[SharedGeometryData.kMaxVertices];
-        _managedIndexArray = new int[SharedGeometryData.kMaxVertices];
+        _managedVertexArray = new UnityEngine.Vector3[FlyRenderer.kMaxVertices];
+        _managedNormalArray = new UnityEngine.Vector3[FlyRenderer.kMaxVertices];
+        _managedIndexArray = new int[FlyRenderer.kMaxVertices];
 
-        for (var i = 0; i < SharedGeometryData.kMaxVertices; i++) _managedIndexArray[i] = i;
+        for (var i = 0; i < FlyRenderer.kMaxVertices; i++) _managedIndexArray[i] = i;
     }
 
     protected override void OnDestroyManager()
@@ -35,35 +32,30 @@ public class FlyRendererSystem : ComponentSystem
 
     unsafe protected override void OnUpdate()
     {
-        EntityManager.GetAllUniqueSharedComponentDatas(_rendererDatas);
+        EntityManager.GetAllUniqueSharedComponentDatas(_renderers);
 
         var matrix = UnityEngine.Matrix4x4.identity;
-        var copySize = sizeof(float3) * SharedGeometryData.kMaxVertices;
+        var copySize = sizeof(float3) * FlyRenderer.kMaxVertices;
 
         var pVArray = UnsafeUtility.AddressOf(ref _managedVertexArray[0]);
         var pNArray = UnsafeUtility.AddressOf(ref _managedNormalArray[0]);
 
-        foreach (var rendererData in _rendererDatas)
+        foreach (var renderer in _renderers)
         {
-            if (rendererData.material == null) continue;
+            if (renderer.MeshInstance == null) continue;
 
-            _rendererGroup.SetFilter(rendererData);
+            UnsafeUtility.MemCpy(pVArray, renderer.Vertices.GetUnsafePtr(), copySize);
+            UnsafeUtility.MemCpy(pNArray, renderer.Normals.GetUnsafePtr(), copySize);
 
-            var head = _rendererGroup.GetEntityArray()[0];
-            var geometry = EntityManager.GetSharedComponentData<SharedGeometryData>(head);
-
-            UnsafeUtility.MemCpy(pVArray, geometry.Vertices.GetUnsafePtr(), copySize);
-            UnsafeUtility.MemCpy(pNArray, geometry.Normals.GetUnsafePtr(), copySize);
-
-            geometry.MeshInstance.vertices = _managedVertexArray;
-            geometry.MeshInstance.normals = _managedNormalArray;
-            geometry.MeshInstance.triangles = _managedIndexArray;
+            renderer.MeshInstance.vertices = _managedVertexArray;
+            renderer.MeshInstance.normals = _managedNormalArray;
+            renderer.MeshInstance.triangles = _managedIndexArray;
 
             UnityEngine.Graphics.DrawMesh(
-                geometry.MeshInstance, matrix, rendererData.material, 0
+                renderer.MeshInstance, matrix, renderer.Settings.material, 0
             );
         }
 
-        _rendererDatas.Clear();
+        _renderers.Clear();
     }
 }
