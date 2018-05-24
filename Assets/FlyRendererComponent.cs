@@ -1,15 +1,11 @@
 using Unity.Entities;
-using UnityEngine;
-using UnityEngine.Rendering;
 
 [System.Serializable]
 public struct FlyRenderer : ISharedComponentData
 {
-    public Material material;
-    public ShadowCastingMode castShadows;
+    public UnityEngine.Material material;
+    public UnityEngine.Rendering.ShadowCastingMode castShadows;
     public bool receiveShadows;
 }
 
-public class FlyRendererComponent : SharedComponentDataWrapper<FlyRenderer>
-{
-}
+public class FlyRendererComponent : SharedComponentDataWrapper<FlyRenderer> {}
