@@ -7,50 +7,54 @@ using System.Collections.Generic;
 class FlySpawnerSystem : ComponentSystem
 {
     // Used to enumerate spawner components
-    List<FlySpawner> _spawners = new List<FlySpawner>();
-    ComponentGroup _group;
+    List<FlySpawner> _spawnerDatas = new List<FlySpawner>();
+    ComponentGroup _spawnerGroup;
 
     // Fly entity archetype used for instantiation
     EntityArchetype _flyArchetype;
 
     protected override void OnCreateManager(int capacity)
     {
-        _group = GetComponentGroup(
-            typeof(FlySpawner), typeof(Position)
+        _spawnerGroup = GetComponentGroup(
+            typeof(Position), typeof(FlySpawner), typeof(FlyRenderer)
         );
 
         _flyArchetype = EntityManager.CreateArchetype(
-            typeof(Fly), typeof(Facet), typeof(Position)
+            typeof(Fly), typeof(Facet), typeof(Position), typeof(FlyRenderer)
         );
     }
 
     protected override void OnUpdate()
     {
-        // Enumerate all the spawners.
-        EntityManager.GetAllUniqueSharedComponentDatas(_spawners);
-        foreach (var spawner in _spawners)
+        // Enumerate all the spawner data entries.
+        EntityManager.GetAllUniqueSharedComponentDatas(_spawnerDatas);
+        foreach (var spawnerData in _spawnerDatas)
         {
             // Skip if it has no data.
-            if (spawner.templateMesh == null) continue;
+            if (spawnerData.templateMesh == null) continue;
 
-            // Retrieve the mesh data.
-            var vertices = spawner.templateMesh.vertices;
-            var indices = spawner.templateMesh.triangles;
-
-            // Get a copy of the entity array.
+            // Get a copy of the spawner entity array.
             // Don't directly use the iterator -- we're going to remove
             // the spawner components, and it will invalidate the iterator.
-            _group.SetFilter(spawner);
-            var iterator = _group.GetEntityArray();
-            var entities = new NativeArray<Entity>(iterator.Length, Allocator.Temp);
-            iterator.CopyTo(entities);
+            _spawnerGroup.SetFilter(spawnerData);
+            var iterator = _spawnerGroup.GetEntityArray();
+            if (iterator.Length == 0) continue;
+            var spawnerEntities = new NativeArray<Entity>(iterator.Length, Allocator.Temp);
+            iterator.CopyTo(spawnerEntities);
+
+            // Retrieve the mesh data.
+            var vertices = spawnerData.templateMesh.vertices;
+            var indices = spawnerData.templateMesh.triangles;
 
             // Instantiate flies along with the spawner entities.
-            for (var j = 0; j < entities.Length; j++)
+            for (var j = 0; j < spawnerEntities.Length; j++)
             {
-                // Retrieve the position data.
-                var position = EntityManager.GetComponentData<Position>(entities[j]).Value;
+                // Retrieve the source data.
+                var spawnerEntity = spawnerEntities[j];
+                var position = EntityManager.GetComponentData<Position>(spawnerEntity).Value;
+                var renderer = EntityManager.GetSharedComponentData<FlyRenderer>(spawnerEntity);
 
+                // Populate fly entities.
                 for (var vi = 0; vi < indices.Length; vi += 3)
                 {
                     var v1 = (float3)vertices[indices[vi + 0]];
@@ -69,15 +73,17 @@ class FlySpawnerSystem : ComponentSystem
                     EntityManager.SetComponentData(fly, new Position {
                         Value = position + vc
                     });
+
+                    EntityManager.SetSharedComponentData(fly, renderer);
                 }
 
                 // Remove the spawner component from the entity.
-                EntityManager.RemoveComponent(entities[j], typeof(FlySpawner));
+                EntityManager.RemoveComponent(spawnerEntity, typeof(FlySpawner));
             }
 
-            entities.Dispose();
+            spawnerEntities.Dispose();
         }
 
-        _spawners.Clear();
+        _spawnerDatas.Clear();
     }
 }

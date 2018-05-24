@@ -1,4 +1,6 @@
 using Unity.Entities;
+using Unity.Collections;
+using Unity.Mathematics;
 
 [System.Serializable]
 public struct FlyRenderer : ISharedComponentData
