@@ -13,6 +13,9 @@ class FlySpawnerSystem : ComponentSystem
     // Fly entity archetype used for instantiation
     EntityArchetype _flyArchetype;
 
+    // Allocation list
+    List<NativeArray<float3>> _toBeDisposed = new List<NativeArray<float3>>();
+
     protected override void OnCreateManager(int capacity)
     {
         _spawnerGroup = GetComponentGroup(
@@ -20,8 +23,14 @@ class FlySpawnerSystem : ComponentSystem
         );
 
         _flyArchetype = EntityManager.CreateArchetype(
-            typeof(Fly), typeof(Facet), typeof(Position), typeof(FlyRenderer)
+            typeof(Fly), typeof(Facet), typeof(Position),
+            typeof(FlyRenderer), typeof(SharedGeometryData)
         );
+    }
+
+    protected override void OnDestroyManager()
+    {
+        for (var i = 0; i < _toBeDisposed.Count; i++) _toBeDisposed[i].Dispose();
     }
 
     protected override void OnUpdate()
@@ -54,6 +63,15 @@ class FlySpawnerSystem : ComponentSystem
                 var position = EntityManager.GetComponentData<Position>(spawnerEntity).Value;
                 var renderer = EntityManager.GetSharedComponentData<FlyRenderer>(spawnerEntity);
 
+                // Prepare geometry data.
+                var geometry = new SharedGeometryData();
+                geometry.Vertices = new NativeArray<float3>(SharedGeometryData.kMaxVertices, Allocator.Persistent);
+                geometry.Normals = new NativeArray<float3>(SharedGeometryData.kMaxVertices, Allocator.Persistent);
+                geometry.MeshInstance = new UnityEngine.Mesh();
+
+                _toBeDisposed.Add(geometry.Vertices);
+                _toBeDisposed.Add(geometry.Normals);
+
                 // Populate fly entities.
                 for (var vi = 0; vi < indices.Length; vi += 3)
                 {
@@ -75,6 +93,7 @@ class FlySpawnerSystem : ComponentSystem
                     });
 
                     EntityManager.SetSharedComponentData(fly, renderer);
+                    EntityManager.SetSharedComponentData(fly, geometry);
                 }
 
                 // Remove the spawner component from the entity.

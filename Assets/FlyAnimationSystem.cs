@@ -1,5 +1,4 @@
 ﻿using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Transforms;
@@ -39,114 +38,39 @@ public class FlyAnimationSystem : JobComponentSystem
         }
     }
 
-    class MeshCache
-    {
-        public NativeArray<float3> Vertices;
-        public NativeArray<float3> Normals;
-        public FlyRenderer RendererSettings;
-        public UnityEngine.Mesh MeshInstance;
-
-        public MeshCache()
-        {
-            Vertices = new NativeArray<float3>(kMaxVertices, Allocator.Persistent);
-            Normals = new NativeArray<float3>(kMaxVertices, Allocator.Persistent);
-            MeshInstance = new UnityEngine.Mesh();
-        }
-
-        public void Release()
-        {
-            Vertices.Dispose();
-            Normals.Dispose();
-            UnityEngine.Object.Destroy(MeshInstance);
-        }
-    }
-
-    List<MeshCache> _meshCaches = new List<MeshCache>();
-
     List<FlyRenderer> _rendererDatas = new List<FlyRenderer>();
     ComponentGroup _flyGroup;
-
-    const int kMaxVertices = 60000;
-
-    UnityEngine.Vector3[] _managedVertexArray;
-    UnityEngine.Vector3[] _managedNormalArray;
-    int[] _managedIndexArray;
 
     protected override void OnCreateManager(int capacity)
     {
         _flyGroup = GetComponentGroup(
-            typeof(Fly), typeof(Facet), typeof(Position), typeof(FlyRenderer)
+            typeof(Fly), typeof(Facet), typeof(Position),
+            typeof(FlyRenderer), typeof(SharedGeometryData)
         );
-
-        _managedVertexArray = new UnityEngine.Vector3[kMaxVertices];
-        _managedNormalArray = new UnityEngine.Vector3[kMaxVertices];
-        _managedIndexArray = new int[kMaxVertices];
-
-        for (var i = 0; i < kMaxVertices; i++) _managedIndexArray[i] = i;
     }
 
-    protected override void OnDestroyManager()
+    protected override JobHandle OnUpdate(JobHandle deps)
     {
-        foreach (var mc in _meshCaches) mc.Release();
-        _meshCaches.Clear();
-
-        _managedVertexArray = null;
-        _managedNormalArray = null;
-        _managedIndexArray = null;
-    }
-
-    unsafe protected override JobHandle OnUpdate(JobHandle deps)
-    {
-        var matrix = UnityEngine.Matrix4x4.identity;
-
-        foreach (var cache in _meshCaches)
-        {
-            var copySize = sizeof(float3) * kMaxVertices;
-
-            var pVArray = UnsafeUtility.AddressOf(ref _managedVertexArray[0]);
-            var pNArray = UnsafeUtility.AddressOf(ref _managedNormalArray[0]);
-
-            UnsafeUtility.MemCpy(pVArray, cache.Vertices.GetUnsafePtr(), copySize);
-            UnsafeUtility.MemCpy(pNArray, cache.Normals.GetUnsafePtr(), copySize);
-
-            cache.MeshInstance.vertices = _managedVertexArray;
-            cache.MeshInstance.normals = _managedNormalArray;
-            cache.MeshInstance.triangles = _managedIndexArray;
-
-            UnityEngine.Graphics.DrawMesh(
-                cache.MeshInstance, matrix, cache.RendererSettings.material, 0
-            );
-        }
-
         EntityManager.GetAllUniqueSharedComponentDatas(_rendererDatas);
 
-        var cacheCount = 0;
-        for (var i = 0; i < _rendererDatas.Count; i++)
+        foreach (var rendererData in _rendererDatas)
         {
-            if (_rendererDatas[i].material == null) continue;
+            if (rendererData.material == null) continue;
 
-            if (cacheCount >= _meshCaches.Count) _meshCaches.Add(new MeshCache());
-            var cache = _meshCaches[cacheCount++];
-            cache.RendererSettings = _rendererDatas[i];
+            _flyGroup.SetFilter(rendererData);
 
-            _flyGroup.SetFilter(_rendererDatas[i]);
+            var head = _flyGroup.GetEntityArray()[0];
+            var geometry = EntityManager.GetSharedComponentData<SharedGeometryData>(head);
 
             var job = new ConstructionJob() {
                 Flies = _flyGroup.GetComponentDataArray<Fly>(),
                 Facets = _flyGroup.GetComponentDataArray<Facet>(),
                 Positions = _flyGroup.GetComponentDataArray<Position>(),
-                Vertices = cache.Vertices,
-                Normals = cache.Normals
+                Vertices = geometry.Vertices,
+                Normals = geometry.Normals
             };
 
             deps = job.Schedule(_flyGroup.CalculateLength(), 64, deps);
-        }
-
-        while (cacheCount > _meshCaches.Count)
-        {
-            var i = _meshCaches.Count - 1;
-            _meshCaches[i].Release();
-            _meshCaches.RemoveAt(i);
         }
 
         _rendererDatas.Clear();
