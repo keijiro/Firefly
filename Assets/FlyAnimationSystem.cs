@@ -28,10 +28,16 @@ public class FlyAnimationSystem : JobComponentSystem
             var v2 = p + f.Vertex2;
             var v3 = p + f.Vertex3;
 
-            var offs = new float3(0, 0, Time * 1.6f);
-            v1 *= 1 + noise.cnoise(v1 * 2 + offs) * 0.2f;
-            v2 *= 1 + noise.cnoise(v2 * 2 + offs) * 0.2f;
-            v3 *= 1 + noise.cnoise(v3 * 2 + offs) * 0.2f;
+            var offs = new float3(0, 0, Time * 0.6f);
+            float3 d1, d2, d3;
+
+            noise.snoise(v1 + offs, out d1);
+            noise.snoise(v2 + offs, out d2);
+            noise.snoise(v3 + offs, out d3);
+
+            v1 += d1 * 0.05f;
+            v2 += d2 * 0.05f;
+            v3 += d3 * 0.05f;
 
             var n = math.normalize(math.cross(v2 - v1, v3 - v1));
 
