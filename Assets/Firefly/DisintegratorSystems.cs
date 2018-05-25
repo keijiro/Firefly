@@ -13,20 +13,23 @@ namespace Firefly
         [ComputeJobOptimization]
         struct AnimationJob : IJobProcessComponentData<Disintegrator, Position>
         {
-            public float dt;
+            public float Time;
+            public float DeltaTime;
 
             public void Execute(
                 [ReadOnly] ref Disintegrator disintegrator,
                 ref Position position
             )
             {
-                float3 np = position.Value * 2;
+                var np = position.Value * 2;
 
                 float3 grad1, grad2;
                 noise.snoise(np, out grad1);
                 noise.snoise(np + 100, out grad2);
 
-                float3 acc = math.cross(grad1, grad2) * 0.02f;
+                var acc = math.cross(grad1, grad2) * 0.02f;
+
+                var dt = DeltaTime * math.saturate(Time - 2 + position.Value.y * 2);
 
                 position.Value += disintegrator.Velocity * dt;
                 disintegrator.Life += dt;
@@ -36,7 +39,10 @@ namespace Firefly
 
         protected override JobHandle OnUpdate(JobHandle deps)
         {
-           var job = new AnimationJob() { dt = UnityEngine.Time.deltaTime };
+           var job = new AnimationJob() {
+               Time = UnityEngine.Time.time,
+               DeltaTime = UnityEngine.Time.deltaTime
+           };
            return job.Schedule(this, 32, deps);
         }
     }
@@ -47,8 +53,9 @@ namespace Firefly
         [ComputeJobOptimization]
         struct ReconstructionJob : IJobParallelFor
         {
-            [ReadOnly] public ComponentDataArray<Facet> Facets;
+            [ReadOnly] public ComponentDataArray<Disintegrator> Disintegrators;
             [ReadOnly] public ComponentDataArray<Position> Positions;
+            [ReadOnly] public ComponentDataArray<Facet> Facets;
 
             [NativeDisableParallelForRestriction] public NativeArray<float3> Vertices;
             [NativeDisableParallelForRestriction] public NativeArray<float3> Normals;
@@ -77,16 +84,36 @@ namespace Firefly
             public void Execute(int index)
             {
                 var p = Positions[index].Value;
+                var t = Disintegrators[index].Life;
+
+                var vz = math.normalize(Disintegrators[index].Velocity + 0.001f);
+                var vx = math.normalize(math.cross(new float3(0, 1, 0), vz));
+                var vy = math.cross(vz, vx);
+
                 var f = Facets[index];
 
-                var v1 = p + f.Vertex1;
-                var v2 = p + f.Vertex2;
-                var v3 = p + f.Vertex3;
-                var v4 = p - (f.Vertex2 - f.Vertex1);
-                var v5 = p - (f.Vertex3 - f.Vertex1);
+                var freq = 8 + Random.Value01((uint)index) * 20;
+                vx *= 0.03f;
+                vy *= 0.03f * math.sin(freq * t);
+                vz *= 0.03f;
+
+                var v1 = p;
+                var v2 = p - vx - vz + vy;
+                var v3 = p - vx + vz + vy;
+                var v4 = p + vx + vz + vy;
+                var v5 = p + vx - vz + vy;
+
+                var tf = math.saturate(t);
+                v1 = math.lerp(p + f.Vertex1, v1, tf);
+                v2 = math.lerp(p + f.Vertex2, v2, tf);
+                v3 = math.lerp(p + f.Vertex3, v3, tf);
+                v4 = math.lerp(p + f.Vertex2, v4, tf);
+                v5 = math.lerp(p + f.Vertex3, v5, tf);
 
                 AddTriangle(v1, v2, v3);
+                AddTriangle(v1, v3, v2);
                 AddTriangle(v1, v4, v5);
+                AddTriangle(v1, v5, v4);
             }
         }
 
@@ -96,7 +123,7 @@ namespace Firefly
         protected override void OnCreateManager(int capacity)
         {
             _group = GetComponentGroup(
-                typeof(Disintegrator), typeof(Facet), typeof(Position), typeof(Renderer)
+                typeof(Disintegrator), typeof(Position), typeof(Facet), typeof(Renderer)
             );
         }
 
@@ -113,8 +140,9 @@ namespace Firefly
                 _group.SetFilter(renderer);
 
                 var job = new ReconstructionJob() {
-                    Facets = _group.GetComponentDataArray<Facet>(),
+                    Disintegrators = _group.GetComponentDataArray<Disintegrator>(),
                     Positions = _group.GetComponentDataArray<Position>(),
+                    Facets = _group.GetComponentDataArray<Facet>(),
                     Vertices = renderer.Vertices,
                     Normals = renderer.Normals,
                     Counter = renderer.Counter
