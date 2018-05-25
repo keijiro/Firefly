@@ -14,7 +14,7 @@ class FlySpawnSystem : ComponentSystem
     EntityArchetype _flyArchetype;
 
     // Allocation list
-    List<NativeArray<float3>> _toBeDisposed = new List<NativeArray<float3>>();
+    List<FlyRenderer> _toBeDisposed = new List<FlyRenderer>();
 
     protected override void OnCreateManager(int capacity)
     {
@@ -29,7 +29,12 @@ class FlySpawnSystem : ComponentSystem
 
     protected override void OnDestroyManager()
     {
-        for (var i = 0; i < _toBeDisposed.Count; i++) _toBeDisposed[i].Dispose();
+        foreach (var renderer in _toBeDisposed)
+        {
+            renderer.Vertices.Dispose();
+            renderer.Normals.Dispose();
+            renderer.Counter.Dispose();
+        }
     }
 
     protected override void OnUpdate()
@@ -67,9 +72,9 @@ class FlySpawnSystem : ComponentSystem
                 renderer.Vertices = new NativeArray<float3>(FlyRenderer.kMaxVertices, Allocator.Persistent);
                 renderer.Normals = new NativeArray<float3>(FlyRenderer.kMaxVertices, Allocator.Persistent);
                 renderer.MeshInstance = new UnityEngine.Mesh();
+                renderer.Counter = new NativeCounter(Allocator.Persistent);
 
-                _toBeDisposed.Add(renderer.Vertices);
-                _toBeDisposed.Add(renderer.Normals);
+                _toBeDisposed.Add(renderer);
 
                 // Populate fly entities.
                 for (var vi = 0; vi < indices.Length; vi += 3)

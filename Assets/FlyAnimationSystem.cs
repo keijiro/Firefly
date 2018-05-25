@@ -1,4 +1,5 @@
 ﻿using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Transforms;
@@ -8,7 +9,7 @@ using System.Collections.Generic;
 public class FlyAnimationSystem : JobComponentSystem
 {
     [ComputeJobOptimization]
-    struct ConstructionJob : IJobParallelFor
+    unsafe struct ConstructionJob : IJobParallelFor
     {
         [ReadOnly] public ComponentDataArray<Fly> Flies;
         [ReadOnly] public ComponentDataArray<Facet> Facets;
@@ -17,33 +18,41 @@ public class FlyAnimationSystem : JobComponentSystem
 
         [NativeDisableParallelForRestriction] public NativeArray<float3> Vertices;
         [NativeDisableParallelForRestriction] public NativeArray<float3> Normals;
+        public NativeCounter.Concurrent Counter;
 
         public void Execute(int index)
         {
             var p = Positions[index].Value;
             var f = Facets[index];
-            var vi = index * 3;
 
             var v1 = p + f.Vertex1;
             var v2 = p + f.Vertex2;
             var v3 = p + f.Vertex3;
 
-            var offs = new float3(0, 0, Time * 0.6f);
-            float3 d1, d2, d3;
+            float3 d1;
+            noise.snoise(p, out d1);
 
-            noise.snoise(v1 + offs, out d1);
-            noise.snoise(v2 + offs, out d2);
-            noise.snoise(v3 + offs, out d3);
-
-            v1 += d1 * 0.05f;
-            v2 += d2 * 0.05f;
-            v3 += d3 * 0.05f;
+            v1 += d1 * 0.05f * Time;
+            v2 += d1 * 0.05f * Time;
+            v3 += d1 * 0.05f * Time;
 
             var n = math.normalize(math.cross(v2 - v1, v3 - v1));
+
+            var vi = Counter.Increment() * 3;
 
             Vertices[vi + 0] = v1;
             Vertices[vi + 1] = v2;
             Vertices[vi + 2] = v3;
+
+            Normals[vi + 0] = n;
+            Normals[vi + 1] = n;
+            Normals[vi + 2] = n;
+
+            vi = Counter.Increment() * 3;
+
+            Vertices[vi + 0] = v1 - new float3(0.5f, 0, 0);
+            Vertices[vi + 1] = v2 - new float3(0.5f, 0, 0);
+            Vertices[vi + 2] = v3 - new float3(0.5f, 0, 0);
 
             Normals[vi + 0] = n;
             Normals[vi + 1] = n;
@@ -61,13 +70,16 @@ public class FlyAnimationSystem : JobComponentSystem
         );
     }
 
-    protected override JobHandle OnUpdate(JobHandle deps)
+    unsafe protected override JobHandle OnUpdate(JobHandle deps)
     {
         EntityManager.GetAllUniqueSharedComponentDatas(_renderers);
 
-        foreach (var renderer in _renderers)
+        for (var i = 0; i < _renderers.Count; i++)
         {
+            var renderer = _renderers[i];
             if (renderer.MeshInstance == null) continue;
+
+            renderer.Counter.Count = 0;
 
             _flyGroup.SetFilter(renderer);
 
@@ -77,7 +89,8 @@ public class FlyAnimationSystem : JobComponentSystem
                 Positions = _flyGroup.GetComponentDataArray<Position>(),
                 Time = UnityEngine.Time.time,
                 Vertices = renderer.Vertices,
-                Normals = renderer.Normals
+                Normals = renderer.Normals,
+                Counter = renderer.Counter
             };
 
             deps = job.Schedule(_flyGroup.CalculateLength(), 16, deps);

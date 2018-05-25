@@ -21,4 +21,5 @@ public struct FlyRenderer : ISharedComponentData
     public NativeArray<float3> Vertices;
     public NativeArray<float3> Normals;
     public UnityEngine.Mesh MeshInstance;
+    public NativeCounter Counter;
 }
