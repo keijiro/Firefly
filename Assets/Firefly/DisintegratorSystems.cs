@@ -8,18 +8,46 @@ using System.Collections.Generic;
 
 namespace Firefly
 {
-    public class DisintegratorSystem : JobComponentSystem
+    class DisintegratorAnimationSystem : JobComponentSystem
     {
         [ComputeJobOptimization]
-        unsafe struct ConstructionJob : IJobParallelFor
+        struct AnimationJob : IJobProcessComponentData<Disintegrator, Position>
         {
-            [ReadOnly] public ComponentDataArray<Disintegrator> Disintegrators;
+            public float dt;
+
+            public void Execute(
+                [ReadOnly] ref Disintegrator disintegrator,
+                ref Position position
+            )
+            {
+                float3 d1, d2;
+                noise.snoise(position.Value, out d1);
+                noise.snoise(position.Value + 10, out d2);
+                position.Value += math.cross(d1, d2) * dt * 0.02f;
+
+                disintegrator.Life += dt;
+            }
+        }
+
+        protected override JobHandle OnUpdate(JobHandle deps)
+        {
+           var job = new AnimationJob() { dt = UnityEngine.Time.deltaTime };
+           return job.Schedule(this, 32, deps);
+        }
+    }
+
+    [UpdateAfter(typeof(DisintegratorAnimationSystem))]
+    class DisintegratorReconstructionSystem : JobComponentSystem
+    {
+        [ComputeJobOptimization]
+        struct ReconstructionJob : IJobParallelFor
+        {
             [ReadOnly] public ComponentDataArray<Facet> Facets;
             [ReadOnly] public ComponentDataArray<Position> Positions;
-            [ReadOnly] public float Time;
 
             [NativeDisableParallelForRestriction] public NativeArray<float3> Vertices;
             [NativeDisableParallelForRestriction] public NativeArray<float3> Normals;
+
             public NativeCounter.Concurrent Counter;
 
             float3 MakeNormal(float3 a, float3 b, float3 c)
@@ -45,20 +73,15 @@ namespace Firefly
             {
                 var p = Positions[index].Value;
                 var f = Facets[index];
-                var n = MakeNormal(f.Vertex1, f.Vertex2, f.Vertex3);
-
-                var offs = new float3(0, Time, 0);
-                var d = noise.snoise(p * 8 + offs);
-                d = math.pow(math.abs(d), 5);
 
                 var v1 = p + f.Vertex1;
                 var v2 = p + f.Vertex2;
                 var v3 = p + f.Vertex3;
-                var v4 = p + n * d;
+                var v4 = p - (f.Vertex2 - f.Vertex1);
+                var v5 = p - (f.Vertex3 - f.Vertex1);
 
-                AddTriangle(v1, v2, v4);
-                AddTriangle(v2, v3, v4);
-                AddTriangle(v3, v1, v4);
+                AddTriangle(v1, v2, v3);
+                AddTriangle(v1, v4, v5);
             }
         }
 
@@ -72,7 +95,7 @@ namespace Firefly
             );
         }
 
-        unsafe protected override JobHandle OnUpdate(JobHandle deps)
+        protected override JobHandle OnUpdate(JobHandle deps)
         {
             EntityManager.GetAllUniqueSharedComponentDatas(_renderers);
 
@@ -82,20 +105,17 @@ namespace Firefly
                 if (renderer.WorkMesh == null) continue;
 
                 renderer.Counter.Count = 0;
-
                 _group.SetFilter(renderer);
 
-                var job = new ConstructionJob() {
-                    Disintegrators = _group.GetComponentDataArray<Disintegrator>(),
+                var job = new ReconstructionJob() {
                     Facets = _group.GetComponentDataArray<Facet>(),
                     Positions = _group.GetComponentDataArray<Position>(),
-                    Time = UnityEngine.Time.time,
                     Vertices = renderer.Vertices,
                     Normals = renderer.Normals,
                     Counter = renderer.Counter
                 };
 
-                deps = job.Schedule(_group.CalculateLength(), 8, deps);
+                deps = job.Schedule(_group.CalculateLength(), 16, deps);
             }
 
             _renderers.Clear();
