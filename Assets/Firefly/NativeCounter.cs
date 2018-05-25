@@ -1,9 +1,14 @@
+// Slightly modified version of NativeCounter provided in EntityComponentSystemSamples
+// Only Increment() was modified to return the old count value.
+
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
+
+namespace Firefly {
 
 [StructLayout(LayoutKind.Sequential)]
 [NativeContainer]
@@ -270,4 +275,6 @@ unsafe public struct NativePerThreadCounter
             ++m_Counter[IntsPerCacheLine*m_ThreadIndex];
         }
     }
+}
+
 }
