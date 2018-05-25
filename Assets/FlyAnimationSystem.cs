@@ -20,24 +20,14 @@ public class FlyAnimationSystem : JobComponentSystem
         [NativeDisableParallelForRestriction] public NativeArray<float3> Normals;
         public NativeCounter.Concurrent Counter;
 
-        public void Execute(int index)
+        float3 MakeNormal(float3 a, float3 b, float3 c)
         {
-            var p = Positions[index].Value;
-            var f = Facets[index];
+            return math.normalize(math.cross(b - a, c - a));
+        }
 
-            var v1 = p + f.Vertex1;
-            var v2 = p + f.Vertex2;
-            var v3 = p + f.Vertex3;
-
-            float3 d1;
-            noise.snoise(p, out d1);
-
-            v1 += d1 * 0.05f * Time;
-            v2 += d1 * 0.05f * Time;
-            v3 += d1 * 0.05f * Time;
-
-            var n = math.normalize(math.cross(v2 - v1, v3 - v1));
-
+        void AddTriangle(float3 v1, float3 v2, float3 v3)
+        {
+            var n = MakeNormal(v1, v2, v3);
             var vi = Counter.Increment() * 3;
 
             Vertices[vi + 0] = v1;
@@ -47,16 +37,26 @@ public class FlyAnimationSystem : JobComponentSystem
             Normals[vi + 0] = n;
             Normals[vi + 1] = n;
             Normals[vi + 2] = n;
+        }
 
-            vi = Counter.Increment() * 3;
+        public void Execute(int index)
+        {
+            var p = Positions[index].Value;
+            var f = Facets[index];
+            var n = MakeNormal(f.Vertex1, f.Vertex2, f.Vertex3);
 
-            Vertices[vi + 0] = v1 - new float3(0.5f, 0, 0);
-            Vertices[vi + 1] = v2 - new float3(0.5f, 0, 0);
-            Vertices[vi + 2] = v3 - new float3(0.5f, 0, 0);
+            var offs = new float3(0, Time, 0);
+            var d = noise.snoise(p * 8 + offs);
+            d = math.pow(math.abs(d), 5);
 
-            Normals[vi + 0] = n;
-            Normals[vi + 1] = n;
-            Normals[vi + 2] = n;
+            var v1 = p + f.Vertex1;
+            var v2 = p + f.Vertex2;
+            var v3 = p + f.Vertex3;
+            var v4 = p + n * d;
+
+            AddTriangle(v1, v2, v4);
+            AddTriangle(v2, v3, v4);
+            AddTriangle(v3, v1, v4);
         }
     }
 
@@ -93,7 +93,7 @@ public class FlyAnimationSystem : JobComponentSystem
                 Counter = renderer.Counter
             };
 
-            deps = job.Schedule(_flyGroup.CalculateLength(), 16, deps);
+            deps = job.Schedule(_flyGroup.CalculateLength(), 8, deps);
         }
 
         _renderers.Clear();
