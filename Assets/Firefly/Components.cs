@@ -24,5 +24,6 @@ namespace Firefly
     public struct Disintegrator : IComponentData
     {
         public float Life;
+        public float3 Velocity;
     }
 }

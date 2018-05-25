@@ -20,12 +20,17 @@ namespace Firefly
                 ref Position position
             )
             {
-                float3 d1, d2;
-                noise.snoise(position.Value, out d1);
-                noise.snoise(position.Value + 10, out d2);
-                position.Value += math.cross(d1, d2) * dt * 0.02f;
+                float3 np = position.Value * 2;
 
+                float3 grad1, grad2;
+                noise.snoise(np, out grad1);
+                noise.snoise(np + 100, out grad2);
+
+                float3 acc = math.cross(grad1, grad2) * 0.02f;
+
+                position.Value += disintegrator.Velocity * dt;
                 disintegrator.Life += dt;
+                disintegrator.Velocity += acc * dt;
             }
         }
 
