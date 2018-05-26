@@ -57,7 +57,13 @@ namespace Firefly
                 renderer.WorkMesh.vertices = _managedVertexArray;
                 renderer.WorkMesh.normals = _managedNormalArray;
 
-                if (!meshIsReady) renderer.WorkMesh.triangles = _managedIndexArray;
+                if (!meshIsReady)
+                {
+                    renderer.WorkMesh.triangles = _managedIndexArray;
+                    renderer.WorkMesh.bounds = new UnityEngine.Bounds(
+                        UnityEngine.Vector3.zero, UnityEngine.Vector3.one * 1000
+                    );
+                }
 
                 UnityEngine.Graphics.DrawMesh(
                     renderer.WorkMesh, matrix, renderer.Settings.material, 0
