@@ -46,12 +46,18 @@ namespace Firefly
             {
                 if (renderer.WorkMesh == null) continue;
 
+                var meshIsReady = (renderer.WorkMesh.vertexCount > 0);
+
+                if (!meshIsReady)
+                    renderer.WorkMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+
                 UnsafeUtility.MemCpy(pVArray, renderer.Vertices.GetUnsafePtr(), copySize);
                 UnsafeUtility.MemCpy(pNArray, renderer.Normals.GetUnsafePtr(), copySize);
 
                 renderer.WorkMesh.vertices = _managedVertexArray;
                 renderer.WorkMesh.normals = _managedNormalArray;
-                renderer.WorkMesh.triangles = _managedIndexArray;
+
+                if (!meshIsReady) renderer.WorkMesh.triangles = _managedIndexArray;
 
                 UnityEngine.Graphics.DrawMesh(
                     renderer.WorkMesh, matrix, renderer.Settings.material, 0
