@@ -21,7 +21,7 @@ namespace Firefly
                 ref Position position
             )
             {
-                var np = position.Value * 2;
+                var np = position.Value * 6;
 
                 float3 grad1, grad2;
                 noise.snoise(np, out grad1);
@@ -93,9 +93,9 @@ namespace Firefly
                 var f = Facets[index];
 
                 var freq = 8 + Random.Value01((uint)index) * 20;
-                vx *= 0.03f;
-                vy *= 0.03f * math.sin(freq * t);
-                vz *= 0.03f;
+                vx *= 0.01f;
+                vy *= 0.01f * math.sin(freq * t);
+                vz *= 0.01f;
 
                 var v1 = p;
                 var v2 = p - vx - vz + vy;

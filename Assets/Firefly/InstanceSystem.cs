@@ -21,7 +21,7 @@ namespace Firefly
         protected override void OnCreateManager(int capacity)
         {
             _instanceGroup = GetComponentGroup(
-                typeof(Position), typeof(Instance), typeof(RenderSettings)
+                typeof(Instance), typeof(RenderSettings), typeof(UnityEngine.Transform)
             );
 
             _archetype = EntityManager.CreateArchetype(
@@ -57,6 +57,9 @@ namespace Firefly
                 var instanceEntities = new NativeArray<Entity>(iterator.Length, Allocator.Temp);
                 iterator.CopyTo(instanceEntities);
 
+                // Accessor to the scene transform
+                var transforms = _instanceGroup.GetTransformAccessArray();
+
                 // Retrieve the mesh data.
                 var vertices = instanceData.templateMesh.vertices;
                 var indices = instanceData.templateMesh.triangles;
@@ -66,7 +69,6 @@ namespace Firefly
                 {
                     // Retrieve the source data.
                     var instanceEntity = instanceEntities[j];
-                    var position = EntityManager.GetComponentData<Position>(instanceEntity).Value;
 
                     // Create a renderer for this group.
                     var renderer = new Renderer();
@@ -78,12 +80,18 @@ namespace Firefly
 
                     _toBeDisposed.Add(renderer);
 
+                    // Calculate the transform matrix.
+                    var transform = transforms[j];
+                    var matrix = (float4x4)UnityEngine.Matrix4x4.TRS(
+                        transform.position, transform.rotation, transform.localScale
+                    );
+
                     // Populate entities.
                     for (var vi = 0; vi < indices.Length; vi += 3)
                     {
-                        var v1 = (float3)vertices[indices[vi + 0]];
-                        var v2 = (float3)vertices[indices[vi + 1]];
-                        var v3 = (float3)vertices[indices[vi + 2]];
+                        var v1 = math.mul(matrix, new float4(vertices[indices[vi + 0]], 1)).xyz;
+                        var v2 = math.mul(matrix, new float4(vertices[indices[vi + 1]], 1)).xyz;
+                        var v3 = math.mul(matrix, new float4(vertices[indices[vi + 2]], 1)).xyz;
                         var vc = (v1 + v2 + v3) / 3;
 
                         var entity = EntityManager.CreateEntity(_archetype);
@@ -95,7 +103,7 @@ namespace Firefly
                         });
 
                         EntityManager.SetComponentData(entity, new Position {
-                            Value = position + vc
+                            Value = vc
                         });
 
                         EntityManager.SetSharedComponentData(entity, renderer);
