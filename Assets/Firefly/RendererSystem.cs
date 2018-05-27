@@ -49,7 +49,10 @@ namespace Firefly
                 var meshIsReady = (renderer.WorkMesh.vertexCount > 0);
 
                 if (!meshIsReady)
+                {
                     renderer.WorkMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                    renderer.WorkMesh.MarkDynamic();
+                }
 
                 UnsafeUtility.MemCpy(pVArray, renderer.Vertices.GetUnsafePtr(), copySize);
                 UnsafeUtility.MemCpy(pNArray, renderer.Normals.GetUnsafePtr(), copySize);
