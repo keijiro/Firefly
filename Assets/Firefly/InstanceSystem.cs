@@ -39,6 +39,58 @@ namespace Firefly
             }
         }
 
+        void Instantiate(
+            UnityEngine.Transform transform,
+            RenderSettings renderSettings,
+            UnityEngine.Vector3 [] vertices, int [] indices
+        )
+        {
+            // Calculate the transform matrix.
+            var matrix = (float4x4)UnityEngine.Matrix4x4.TRS(
+                transform.position, transform.rotation, transform.localScale
+            );
+
+            // Create a renderer for this group.
+            var renderer = new Renderer {
+                Settings = renderSettings,
+                WorkMesh = new UnityEngine.Mesh(),
+                Vertices = new NativeArray<float3>(Renderer.kMaxVertices, Allocator.Persistent),
+                Normals = new NativeArray<float3>(Renderer.kMaxVertices, Allocator.Persistent),
+                Counter = new NativeCounter(Allocator.Persistent)
+            };
+
+            _toBeDisposed.Add(renderer);
+
+            // Create the template entity.
+            var template = EntityManager.CreateEntity(_archetype);
+            EntityManager.SetSharedComponentData(template, renderer);
+
+            // Clone the template entity.
+            var clones = new NativeArray<Entity>(indices.Length / 3, Allocator.Temp);
+            EntityManager.Instantiate(template, clones);
+
+            // Set the initial data.
+            for (var i = 0; i < clones.Length; i++)
+            {
+                var v1 = math.mul(matrix, new float4(vertices[indices[i * 3 + 0]], 1)).xyz;
+                var v2 = math.mul(matrix, new float4(vertices[indices[i * 3 + 1]], 1)).xyz;
+                var v3 = math.mul(matrix, new float4(vertices[indices[i * 3 + 2]], 1)).xyz;
+                var vc = (v1 + v2 + v3) / 3;
+
+                var entity = clones[i];
+
+                EntityManager.SetComponentData(entity, new Facet {
+                    Vertex1 = v1 - vc, Vertex2 = v2 - vc, Vertex3 = v3 - vc
+                });
+
+                EntityManager.SetComponentData(entity, new Position { Value = vc });
+            }
+
+            // Destroy the temporary objects.
+            EntityManager.DestroyEntity(template);
+            clones.Dispose();
+        }
+
         protected override void OnUpdate()
         {
             // Enumerate all the instance data entries.
@@ -65,49 +117,15 @@ namespace Firefly
                 var indices = instanceData.templateMesh.triangles;
 
                 // Instantiate flies along with the instance entities.
-                for (var j = 0; j < instanceEntities.Length; j++)
+                for (var instanceIndex = 0; instanceIndex < instanceEntities.Length; instanceIndex++)
                 {
-                    // Retrieve the source data.
-                    var instanceEntity = instanceEntities[j];
+                    var instanceEntity = instanceEntities[instanceIndex];
 
-                    // Create a renderer for this group.
-                    var renderer = new Renderer();
-                    renderer.Settings = EntityManager.GetSharedComponentData<RenderSettings>(instanceEntity);
-                    renderer.WorkMesh = new UnityEngine.Mesh();
-                    renderer.Vertices = new NativeArray<float3>(Renderer.kMaxVertices, Allocator.Persistent);
-                    renderer.Normals = new NativeArray<float3>(Renderer.kMaxVertices, Allocator.Persistent);
-                    renderer.Counter = new NativeCounter(Allocator.Persistent);
-
-                    _toBeDisposed.Add(renderer);
-
-                    // Calculate the transform matrix.
-                    var transform = transforms[j];
-                    var matrix = (float4x4)UnityEngine.Matrix4x4.TRS(
-                        transform.position, transform.rotation, transform.localScale
+                    Instantiate(
+                        transforms[instanceIndex],
+                        EntityManager.GetSharedComponentData<RenderSettings>(instanceEntity),
+                        vertices, indices
                     );
-
-                    // Populate entities.
-                    for (var vi = 0; vi < indices.Length; vi += 3)
-                    {
-                        var v1 = math.mul(matrix, new float4(vertices[indices[vi + 0]], 1)).xyz;
-                        var v2 = math.mul(matrix, new float4(vertices[indices[vi + 1]], 1)).xyz;
-                        var v3 = math.mul(matrix, new float4(vertices[indices[vi + 2]], 1)).xyz;
-                        var vc = (v1 + v2 + v3) / 3;
-
-                        var entity = EntityManager.CreateEntity(_archetype);
-
-                        EntityManager.SetComponentData(entity, new Facet {
-                            Vertex1 = v1 - vc,
-                            Vertex2 = v2 - vc,
-                            Vertex3 = v3 - vc
-                        });
-
-                        EntityManager.SetComponentData(entity, new Position {
-                            Value = vc
-                        });
-
-                        EntityManager.SetSharedComponentData(entity, renderer);
-                    }
 
                     // Remove the instance component from the entity.
                     EntityManager.RemoveComponent(instanceEntity, typeof(Instance));
