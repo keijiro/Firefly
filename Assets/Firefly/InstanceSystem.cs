@@ -163,7 +163,13 @@ namespace Firefly
                     Vertex1 = v1 - vc, Vertex2 = v2 - vc, Vertex3 = v3 - vc
                 });
 
-                EntityManager.SetComponentData(entity, new Position { Value = vc });
+                EntityManager.SetComponentData(entity, new Position {
+                    Value = vc
+                });
+
+                EntityManager.SetComponentData(entity, new Particle {
+                    Random = Random.Value01((uint)i)
+                });
             }
 
             // Destroy the temporary objects.

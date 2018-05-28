@@ -15,6 +15,7 @@ namespace Firefly
     {
         public float3 Velocity;
         public float Life;
+        public float Random;
     }
 
     public struct Renderer : ISharedComponentData

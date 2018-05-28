@@ -22,44 +22,38 @@ namespace Firefly
 
             public NativeCounter.Concurrent Counter;
 
-            float3 MakeNormal(float3 a, float3 b, float3 c)
-            {
-                return math.normalize(math.cross(b - a, c - a));
-            }
-
             void AddTriangle(float3 v1, float3 v2, float3 v3)
             {
-                var n = MakeNormal(v1, v2, v3);
-                var vi = Counter.Increment() * 3;
+                var i = Counter.Increment() * 3;
 
-                Vertices[vi + 0] = v1;
-                Vertices[vi + 1] = v2;
-                Vertices[vi + 2] = v3;
+                Vertices[i + 0] = v1;
+                Vertices[i + 1] = v2;
+                Vertices[i + 2] = v3;
 
-                Normals[vi + 0] = n;
-                Normals[vi + 1] = n;
-                Normals[vi + 2] = n;
+                Normals[i + 0] = Normals[i + 1] = Normals[i + 2] =
+                    math.normalize(math.cross(v2 - v1, v3 - v1));
             }
 
             public void Execute(int index)
             {
                 const float size = 0.005f;
 
-                var pos = Positions[index].Value;
-                var time = Particles[index].Life;
+                var p = Particles[index];
 
-                var freq = 8 + Random.Value01((uint)index) * 20;
-                var flap = math.sin(freq * time);
-
-                var az = Particles[index].Velocity + 0.001f;
+                var az = p.Velocity + 0.001f;
                 var ax = math.cross(new float3(0, 1, 0), az);
                 var ay = math.cross(az, ax);
+
+                var freq = 8 + p.Random * 20;
+                var flap = math.sin(freq * p.Life);
 
                 ax = math.normalize(ax) * size;
                 ay = math.normalize(ay) * size * flap;
                 az = math.normalize(az) * size;
 
+                var pos = Positions[index].Value;
                 var face = Triangles[index];
+
                 var va1 = pos + face.Vertex1;
                 var va2 = pos + face.Vertex2;
                 var va3 = pos + face.Vertex3;
@@ -71,7 +65,7 @@ namespace Firefly
                 var vb5 = vb3 + ax * 2;
                 var vb6 = vb4 + ax * 2;
 
-                var p_t = math.saturate(time);
+                var p_t = math.saturate(p.Life);
                 var v1 = math.lerp(va1, vb1, p_t);
                 var v2 = math.lerp(va2, vb2, p_t);
                 var v3 = math.lerp(va3, vb3, p_t);
