@@ -13,7 +13,7 @@ namespace Firefly
 
     public struct Renderer : ISharedComponentData
     {
-        public const int kMaxVertices = 510000;
+        public const int MaxVertices = 510000;
         public RenderSettings Settings;
         public UnityEngine.Mesh WorkMesh;
         public NativeArray<float3> Vertices;

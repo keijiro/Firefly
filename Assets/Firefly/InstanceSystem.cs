@@ -122,11 +122,11 @@ namespace Firefly
                 Settings = renderSettings,
                 WorkMesh = new UnityEngine.Mesh(),
                 Vertices = new NativeArray<float3>(
-                    Renderer.kMaxVertices, Allocator.Persistent,
+                    Renderer.MaxVertices, Allocator.Persistent,
                     NativeArrayOptions.UninitializedMemory
                 ),
                 Normals = new NativeArray<float3>(
-                    Renderer.kMaxVertices, Allocator.Persistent,
+                    Renderer.MaxVertices, Allocator.Persistent,
                     NativeArrayOptions.UninitializedMemory
                 ),
                 Counter = new NativeCounter(Allocator.Persistent)

@@ -5,71 +5,84 @@ using System.Collections.Generic;
 
 namespace Firefly
 {
-    public class RendererSystem : ComponentSystem
+    class RendererSystem : ComponentSystem
     {
         List<Renderer> _renderers = new List<Renderer>();
-        ComponentGroup _dependency; // used just for dependency tracking
+        ComponentGroup _dependency; // Just used to enable dependency tracking
 
-        UnityEngine.Vector3[] _managedVertexArray;
-        UnityEngine.Vector3[] _managedNormalArray;
-        int[] _managedIndexArray;
+        // Managed arrays used to inject data into a mesh
+        UnityEngine.Vector3 [] _vertexArray;
+        UnityEngine.Vector3 [] _normalArray;
+        int [] _indexArray;
 
         protected override void OnCreateManager(int capacity)
         {
             _dependency = GetComponentGroup(typeof(Disintegrator), typeof(Renderer));
 
-            _managedVertexArray = new UnityEngine.Vector3[Renderer.kMaxVertices];
-            _managedNormalArray = new UnityEngine.Vector3[Renderer.kMaxVertices];
-            _managedIndexArray = new int[Renderer.kMaxVertices];
+            // Allocate the temporary managed arrays.
+            _vertexArray = new UnityEngine.Vector3[Renderer.MaxVertices];
+            _normalArray = new UnityEngine.Vector3[Renderer.MaxVertices];
+            _indexArray = new int[Renderer.MaxVertices];
 
-            for (var i = 0; i < Renderer.kMaxVertices; i++) _managedIndexArray[i] = i;
+            // Default index array
+            for (var i = 0; i < Renderer.MaxVertices; i++) _indexArray[i] = i;
         }
 
         protected override void OnDestroyManager()
         {
-            _managedVertexArray = null;
-            _managedNormalArray = null;
-            _managedIndexArray = null;
+            _vertexArray = null;
+            _normalArray = null;
+            _indexArray = null;
         }
 
         unsafe protected override void OnUpdate()
         {
+            var identityMatrix = UnityEngine.Matrix4x4.identity;
+            var copySize = sizeof(float3) * Renderer.MaxVertices;
+
+            // Pointers to the temporary managed arrays
+            var pVArray = UnsafeUtility.AddressOf(ref _vertexArray[0]);
+            var pNArray = UnsafeUtility.AddressOf(ref _normalArray[0]);
+
+            // Iterate over the renderer components.
             EntityManager.GetAllUniqueSharedComponentDatas(_renderers);
-
-            var matrix = UnityEngine.Matrix4x4.identity;
-            var copySize = sizeof(float3) * Renderer.kMaxVertices;
-
-            var pVArray = UnsafeUtility.AddressOf(ref _managedVertexArray[0]);
-            var pNArray = UnsafeUtility.AddressOf(ref _managedNormalArray[0]);
-
             foreach (var renderer in _renderers)
             {
-                if (renderer.WorkMesh == null) continue;
+                var mesh = renderer.WorkMesh;
 
-                var meshIsReady = (renderer.WorkMesh.vertexCount > 0);
+                // Do nothing if no mesh (== default empty data)
+                if (mesh == null) continue;
+
+                // Check if the mesh has been already used.
+                var meshIsReady = (mesh.vertexCount > 0);
 
                 if (!meshIsReady)
                 {
-                    renderer.WorkMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-                    renderer.WorkMesh.MarkDynamic();
+                    // Mesh initial settings: 32-bit index, dynamically updated
+                    mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                    mesh.MarkDynamic();
                 }
 
+                // Update the vertex/normal array via managed arrays.
                 UnsafeUtility.MemCpy(pVArray, renderer.Vertices.GetUnsafePtr(), copySize);
                 UnsafeUtility.MemCpy(pNArray, renderer.Normals.GetUnsafePtr(), copySize);
-
-                renderer.WorkMesh.vertices = _managedVertexArray;
-                renderer.WorkMesh.normals = _managedNormalArray;
+                mesh.vertices = _vertexArray;
+                mesh.normals = _normalArray;
 
                 if (!meshIsReady)
                 {
-                    renderer.WorkMesh.triangles = _managedIndexArray;
-                    renderer.WorkMesh.bounds = new UnityEngine.Bounds(
+                    // Set the default index array for the first time.
+                    mesh.triangles = _indexArray;
+
+                    // Set a big bounding box to avoid being culled.
+                    mesh.bounds = new UnityEngine.Bounds(
                         UnityEngine.Vector3.zero, UnityEngine.Vector3.one * 1000
                     );
                 }
 
+                // Draw call
                 UnityEngine.Graphics.DrawMesh(
-                    renderer.WorkMesh, matrix, renderer.Settings.Material, 0
+                    mesh, identityMatrix, renderer.Settings.Material, 0
                 );
             }
 
