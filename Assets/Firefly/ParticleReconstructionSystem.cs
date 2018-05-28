@@ -8,46 +8,6 @@ using System.Collections.Generic;
 
 namespace Firefly
 {
-    class ParticleAnimationSystem : JobComponentSystem
-    {
-        [ComputeJobOptimization]
-        struct AnimationJob : IJobProcessComponentData<Particle, Position>
-        {
-            public float Time;
-            public float DeltaTime;
-
-            public void Execute(
-                [ReadOnly] ref Particle particle,
-                ref Position position
-            )
-            {
-                var np = position.Value * 6;
-
-                float3 grad1, grad2;
-                noise.snoise(np, out grad1);
-                noise.snoise(np + 100, out grad2);
-
-                var acc = math.cross(grad1, grad2) * 0.02f;
-
-                var dt = DeltaTime * math.saturate(Time - 2 + position.Value.y * 2);
-
-                position.Value += particle.Velocity * dt;
-                particle.Life += dt;
-                particle.Velocity += acc * dt;
-            }
-        }
-
-        protected override JobHandle OnUpdate(JobHandle deps)
-        {
-           var job = new AnimationJob() {
-               Time = UnityEngine.Time.time,
-               DeltaTime = UnityEngine.Time.deltaTime
-           };
-           return job.Schedule(this, 32, deps);
-        }
-    }
-
-    [UpdateAfter(typeof(ParticleAnimationSystem))]
     class ParticleReconstructionSystem : JobComponentSystem
     {
         [ComputeJobOptimization]
@@ -83,37 +43,46 @@ namespace Firefly
 
             public void Execute(int index)
             {
-                var p = Positions[index].Value;
-                var t = Particles[index].Life;
+                const float size = 0.005f;
 
-                var vz = math.normalize(Particles[index].Velocity + 0.001f);
-                var vx = math.normalize(math.cross(new float3(0, 1, 0), vz));
-                var vy = math.cross(vz, vx);
-
-                var f = Triangles[index];
+                var pos = Positions[index].Value;
+                var time = Particles[index].Life;
 
                 var freq = 8 + Random.Value01((uint)index) * 20;
-                vx *= 0.01f;
-                vy *= 0.01f * math.sin(freq * t);
-                vz *= 0.01f;
+                var flap = math.sin(freq * time);
 
-                var v1 = p;
-                var v2 = p - vx - vz + vy;
-                var v3 = p - vx + vz + vy;
-                var v4 = p + vx + vz + vy;
-                var v5 = p + vx - vz + vy;
+                var az = Particles[index].Velocity + 0.001f;
+                var ax = math.cross(new float3(0, 1, 0), az);
+                var ay = math.cross(az, ax);
 
-                var tf = math.saturate(t);
-                v1 = math.lerp(p + f.Vertex1, v1, tf);
-                v2 = math.lerp(p + f.Vertex2, v2, tf);
-                v3 = math.lerp(p + f.Vertex3, v3, tf);
-                v4 = math.lerp(p + f.Vertex2, v4, tf);
-                v5 = math.lerp(p + f.Vertex3, v5, tf);
+                ax = math.normalize(ax) * size;
+                ay = math.normalize(ay) * size * flap;
+                az = math.normalize(az) * size;
 
-                AddTriangle(v1, v2, v3);
-                AddTriangle(v1, v3, v2);
-                AddTriangle(v1, v4, v5);
-                AddTriangle(v1, v5, v4);
+                var face = Triangles[index];
+                var va1 = pos + face.Vertex1;
+                var va2 = pos + face.Vertex2;
+                var va3 = pos + face.Vertex3;
+
+                var vb1 = pos + az * 0.2f;
+                var vb2 = pos - az * 0.2f;
+                var vb3 = pos - ax + ay + az;
+                var vb4 = pos - ax + ay - az;
+                var vb5 = vb3 + ax * 2;
+                var vb6 = vb4 + ax * 2;
+
+                var p_t = math.saturate(time);
+                var v1 = math.lerp(va1, vb1, p_t);
+                var v2 = math.lerp(va2, vb2, p_t);
+                var v3 = math.lerp(va3, vb3, p_t);
+                var v4 = math.lerp(va3, vb4, p_t);
+                var v5 = math.lerp(va3, vb5, p_t);
+                var v6 = math.lerp(va3, vb6, p_t);
+
+                AddTriangle(v1, v2, v5);
+                AddTriangle(v5, v2, v6);
+                AddTriangle(v3, v4, v1);
+                AddTriangle(v1, v4, v2);
             }
         }
 
@@ -123,7 +92,8 @@ namespace Firefly
         protected override void OnCreateManager(int capacity)
         {
             _group = GetComponentGroup(
-                typeof(Particle), typeof(Position), typeof(Triangle), typeof(Renderer)
+                typeof(Renderer), // shared
+                typeof(Particle), typeof(Position), typeof(Triangle)
             );
         }
 
@@ -136,9 +106,12 @@ namespace Firefly
                 var renderer = _renderers[i];
                 if (renderer.WorkMesh == null) continue;
 
-                renderer.Counter.Count = 0;
                 _group.SetFilter(renderer);
 
+                // Reset the triangle counter.
+                renderer.Counter.Count = 0;
+
+                // Create a reconstruction job and add it to the job chain.
                 var job = new ReconstructionJob() {
                     Particles = _group.GetComponentDataArray<Particle>(),
                     Positions = _group.GetComponentDataArray<Position>(),
