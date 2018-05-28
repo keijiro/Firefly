@@ -8,6 +8,8 @@ namespace Firefly
 {
     class InstanceSystem : ComponentSystem
     {
+        #region ComponentSystem implementation
+
         // Used to enumerate instance components
         List<Instance> _instanceDatas = new List<Instance>();
         ComponentGroup _instanceGroup;
@@ -33,98 +35,65 @@ namespace Firefly
         {
             foreach (var renderer in _toBeDisposed)
             {
+                UnityEngine.Object.Destroy(renderer.WorkMesh);
                 renderer.Vertices.Dispose();
                 renderer.Normals.Dispose();
                 renderer.Counter.Dispose();
             }
         }
 
-        void Instantiate(
-            UnityEngine.Transform transform,
-            RenderSettings renderSettings,
-            UnityEngine.Vector3 [] vertices, int [] indices
-        )
-        {
-            // Calculate the transform matrix.
-            var matrix = (float4x4)UnityEngine.Matrix4x4.TRS(
-                transform.position, transform.rotation, transform.localScale
-            );
-
-            // Create a renderer for this group.
-            var renderer = new Renderer {
-                Settings = renderSettings,
-                WorkMesh = new UnityEngine.Mesh(),
-                Vertices = new NativeArray<float3>(Renderer.kMaxVertices, Allocator.Persistent),
-                Normals = new NativeArray<float3>(Renderer.kMaxVertices, Allocator.Persistent),
-                Counter = new NativeCounter(Allocator.Persistent)
-            };
-
-            _toBeDisposed.Add(renderer);
-
-            // Create the template entity.
-            var template = EntityManager.CreateEntity(_archetype);
-            EntityManager.SetSharedComponentData(template, renderer);
-
-            // Clone the template entity.
-            var clones = new NativeArray<Entity>(indices.Length / 3, Allocator.Temp);
-            EntityManager.Instantiate(template, clones);
-
-            // Set the initial data.
-            for (var i = 0; i < clones.Length; i++)
-            {
-                var v1 = math.mul(matrix, new float4(vertices[indices[i * 3 + 0]], 1)).xyz;
-                var v2 = math.mul(matrix, new float4(vertices[indices[i * 3 + 1]], 1)).xyz;
-                var v3 = math.mul(matrix, new float4(vertices[indices[i * 3 + 2]], 1)).xyz;
-                var vc = (v1 + v2 + v3) / 3;
-
-                var entity = clones[i];
-
-                EntityManager.SetComponentData(entity, new Facet {
-                    Vertex1 = v1 - vc, Vertex2 = v2 - vc, Vertex3 = v3 - vc
-                });
-
-                EntityManager.SetComponentData(entity, new Position { Value = vc });
-            }
-
-            // Destroy the temporary objects.
-            EntityManager.DestroyEntity(template);
-            clones.Dispose();
-        }
-
         protected override void OnUpdate()
         {
-            // Enumerate all the instance data entries.
+            //
+            // There are three levels of loops in this system:
+            //
+            // Loop 1: Through the array of unique instance settings. We'll get
+            // an array of entities that share the same instance setting.
+            //
+            // Loop 2: Through the array of entities got in Loop 1.
+            //
+            // Loop 3: Through the array of vertices in the template mesh given
+            // via the instance setting.
+            //
+
+            // Loop 1: Iterate over the unique instance data entries.
             EntityManager.GetAllUniqueSharedComponentDatas(_instanceDatas);
             foreach (var instanceData in _instanceDatas)
             {
-                // Skip if it has no data.
+                // Skip if it doesn't have any data.
                 if (instanceData.templateMesh == null) continue;
 
-                // Get a copy of the instance entity array.
-                // Don't directly use the iterator -- we're going to remove
-                // the instance components, and it will invalidate the iterator.
+                // Get a copy of the entity array. We shouldn't directly use
+                // the iterator because we're going to remove the instance
+                // components that invalidates the iterator.
                 _instanceGroup.SetFilter(instanceData);
+
                 var iterator = _instanceGroup.GetEntityArray();
                 if (iterator.Length == 0) continue;
-                var instanceEntities = new NativeArray<Entity>(iterator.Length, Allocator.Temp);
+
+                var instanceEntities = new NativeArray<Entity>(
+                    iterator.Length, Allocator.Temp,
+                    NativeArrayOptions.UninitializedMemory
+                );
                 iterator.CopyTo(instanceEntities);
 
-                // Accessor to the scene transform
+                // Accessor to the scene transforms
                 var transforms = _instanceGroup.GetTransformAccessArray();
 
-                // Retrieve the mesh data.
+                // Retrieve the template mesh data.
                 var vertices = instanceData.templateMesh.vertices;
                 var indices = instanceData.templateMesh.triangles;
 
-                // Instantiate flies along with the instance entities.
-                for (var instanceIndex = 0; instanceIndex < instanceEntities.Length; instanceIndex++)
+                // Loop 2: Iterate over the instance entities.
+                for (var i = 0; i < instanceEntities.Length; i++)
                 {
-                    var instanceEntity = instanceEntities[instanceIndex];
+                    var instanceEntity = instanceEntities[i];
+                    var rendererSettings = EntityManager.
+                        GetSharedComponentData<RenderSettings>(instanceEntity);
 
-                    Instantiate(
-                        transforms[instanceIndex],
-                        EntityManager.GetSharedComponentData<RenderSettings>(instanceEntity),
-                        vertices, indices
+                    // Loop 3: Iterate over the vertices in the template mesh.
+                    CreateEntitiesOverMesh(
+                        transforms[i], rendererSettings, vertices, indices
                     );
 
                     // Remove the instance component from the entity.
@@ -136,5 +105,72 @@ namespace Firefly
 
             _instanceDatas.Clear();
         }
+
+        #endregion
+
+        #region Internal methods
+
+        void CreateEntitiesOverMesh(
+            UnityEngine.Transform transform,
+            RenderSettings renderSettings,
+            UnityEngine.Vector3 [] vertices,
+            int [] indices
+        )
+        {
+            // Create a renderer for this group.
+            var renderer = new Renderer {
+                Settings = renderSettings,
+                WorkMesh = new UnityEngine.Mesh(),
+                Vertices = new NativeArray<float3>(
+                    Renderer.kMaxVertices, Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory
+                ),
+                Normals = new NativeArray<float3>(
+                    Renderer.kMaxVertices, Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory
+                ),
+                Counter = new NativeCounter(Allocator.Persistent)
+            };
+
+            // We want this renderer object disposed at the end of world.
+            _toBeDisposed.Add(renderer);
+
+            // Create the default entity.
+            var defaultEntity = EntityManager.CreateEntity(_archetype);
+            EntityManager.SetSharedComponentData(defaultEntity, renderer);
+
+            // Create an array of clones as putting a clone on each triangle.
+            var entities = new NativeArray<Entity>(
+                indices.Length / 3, Allocator.Temp,
+                NativeArrayOptions.UninitializedMemory
+            );
+            EntityManager.Instantiate(defaultEntity, entities);
+
+            // Calculate the transform matrix.
+            var matrix = transform.localToWorldMatrix;
+
+            // Set the initial data.
+            for (var i = 0; i < entities.Length; i++)
+            {
+                var entity = entities[i];
+
+                var v1 = math.mul(matrix, new float4(vertices[indices[i * 3 + 0]], 1)).xyz;
+                var v2 = math.mul(matrix, new float4(vertices[indices[i * 3 + 1]], 1)).xyz;
+                var v3 = math.mul(matrix, new float4(vertices[indices[i * 3 + 2]], 1)).xyz;
+                var vc = (v1 + v2 + v3) / 3;
+
+                EntityManager.SetComponentData(entity, new Facet {
+                    Vertex1 = v1 - vc, Vertex2 = v2 - vc, Vertex3 = v3 - vc
+                });
+
+                EntityManager.SetComponentData(entity, new Position { Value = vc });
+            }
+
+            // Destroy the temporary objects.
+            EntityManager.DestroyEntity(defaultEntity);
+            entities.Dispose();
+        }
+
+        #endregion
     }
 }
