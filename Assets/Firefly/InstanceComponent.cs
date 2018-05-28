@@ -5,7 +5,7 @@ namespace Firefly
     [System.Serializable]
     struct Instance : ISharedComponentData
     {
-        public UnityEngine.Mesh templateMesh;
+        public UnityEngine.Mesh TemplateMesh;
     }
 
     class InstanceComponent : SharedComponentDataWrapper<Instance> {}

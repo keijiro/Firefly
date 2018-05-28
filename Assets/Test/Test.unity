@@ -762,7 +762,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_SerializedData:
-    templateMesh: {fileID: 4300002, guid: 7027146812fc2b14cb6a471a821b4633, type: 3}
+    TemplateMesh: {fileID: 4300002, guid: 7027146812fc2b14cb6a471a821b4633, type: 3}
 --- !u!114 &1915976094
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -799,9 +799,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_SerializedData:
-    material: {fileID: 2100000, guid: 132c7e2ac587bb84a9e98b8c675a75cc, type: 2}
-    castShadows: 1
-    receiveShadows: 1
+    Material: {fileID: 2100000, guid: 132c7e2ac587bb84a9e98b8c675a75cc, type: 2}
+    CastShadows: 1
+    ReceiveShadows: 1
 --- !u!1 &2037110297
 GameObject:
   m_ObjectHideFlags: 0

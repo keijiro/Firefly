@@ -61,7 +61,7 @@ namespace Firefly
             foreach (var instanceData in _instanceDatas)
             {
                 // Skip if it doesn't have any data.
-                if (instanceData.templateMesh == null) continue;
+                if (instanceData.TemplateMesh == null) continue;
 
                 // Get a copy of the entity array. We shouldn't directly use
                 // the iterator because we're going to remove the instance
@@ -81,8 +81,8 @@ namespace Firefly
                 var transforms = _instanceGroup.GetTransformAccessArray();
 
                 // Retrieve the template mesh data.
-                var vertices = instanceData.templateMesh.vertices;
-                var indices = instanceData.templateMesh.triangles;
+                var vertices = instanceData.TemplateMesh.vertices;
+                var indices = instanceData.TemplateMesh.triangles;
 
                 // Loop 2: Iterate over the instance entities.
                 for (var i = 0; i < instanceEntities.Length; i++)

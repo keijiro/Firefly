@@ -69,7 +69,7 @@ namespace Firefly
                 }
 
                 UnityEngine.Graphics.DrawMesh(
-                    renderer.WorkMesh, matrix, renderer.Settings.material, 0
+                    renderer.WorkMesh, matrix, renderer.Settings.Material, 0
                 );
             }
 
