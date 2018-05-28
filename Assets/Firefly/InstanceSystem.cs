@@ -27,7 +27,7 @@ namespace Firefly
             );
 
             _archetype = EntityManager.CreateArchetype(
-                typeof(Disintegrator), typeof(Facet), typeof(Position), typeof(Renderer)
+                typeof(Particle), typeof(Triangle), typeof(Position), typeof(Renderer)
             );
         }
 
@@ -159,7 +159,7 @@ namespace Firefly
                 var v3 = math.mul(matrix, new float4(vertices[indices[i * 3 + 2]], 1)).xyz;
                 var vc = (v1 + v2 + v3) / 3;
 
-                EntityManager.SetComponentData(entity, new Facet {
+                EntityManager.SetComponentData(entity, new Triangle {
                     Vertex1 = v1 - vc, Vertex2 = v2 - vc, Vertex3 = v3 - vc
                 });
 

@@ -8,5 +8,6 @@ namespace Firefly
         public UnityEngine.Mesh TemplateMesh;
     }
 
+    [UnityEngine.AddComponentMenu("Firefly/Firefly Instance")]
     class InstanceComponent : SharedComponentDataWrapper<Instance> {}
 }

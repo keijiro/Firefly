@@ -8,16 +8,16 @@ using System.Collections.Generic;
 
 namespace Firefly
 {
-    class DisintegratorAnimationSystem : JobComponentSystem
+    class ParticleAnimationSystem : JobComponentSystem
     {
         [ComputeJobOptimization]
-        struct AnimationJob : IJobProcessComponentData<Disintegrator, Position>
+        struct AnimationJob : IJobProcessComponentData<Particle, Position>
         {
             public float Time;
             public float DeltaTime;
 
             public void Execute(
-                [ReadOnly] ref Disintegrator disintegrator,
+                [ReadOnly] ref Particle particle,
                 ref Position position
             )
             {
@@ -31,9 +31,9 @@ namespace Firefly
 
                 var dt = DeltaTime * math.saturate(Time - 2 + position.Value.y * 2);
 
-                position.Value += disintegrator.Velocity * dt;
-                disintegrator.Life += dt;
-                disintegrator.Velocity += acc * dt;
+                position.Value += particle.Velocity * dt;
+                particle.Life += dt;
+                particle.Velocity += acc * dt;
             }
         }
 
@@ -47,15 +47,15 @@ namespace Firefly
         }
     }
 
-    [UpdateAfter(typeof(DisintegratorAnimationSystem))]
-    class DisintegratorReconstructionSystem : JobComponentSystem
+    [UpdateAfter(typeof(ParticleAnimationSystem))]
+    class ParticleReconstructionSystem : JobComponentSystem
     {
         [ComputeJobOptimization]
         struct ReconstructionJob : IJobParallelFor
         {
-            [ReadOnly] public ComponentDataArray<Disintegrator> Disintegrators;
+            [ReadOnly] public ComponentDataArray<Particle> Particles;
             [ReadOnly] public ComponentDataArray<Position> Positions;
-            [ReadOnly] public ComponentDataArray<Facet> Facets;
+            [ReadOnly] public ComponentDataArray<Triangle> Triangles;
 
             [NativeDisableParallelForRestriction] public NativeArray<float3> Vertices;
             [NativeDisableParallelForRestriction] public NativeArray<float3> Normals;
@@ -84,13 +84,13 @@ namespace Firefly
             public void Execute(int index)
             {
                 var p = Positions[index].Value;
-                var t = Disintegrators[index].Life;
+                var t = Particles[index].Life;
 
-                var vz = math.normalize(Disintegrators[index].Velocity + 0.001f);
+                var vz = math.normalize(Particles[index].Velocity + 0.001f);
                 var vx = math.normalize(math.cross(new float3(0, 1, 0), vz));
                 var vy = math.cross(vz, vx);
 
-                var f = Facets[index];
+                var f = Triangles[index];
 
                 var freq = 8 + Random.Value01((uint)index) * 20;
                 vx *= 0.01f;
@@ -123,7 +123,7 @@ namespace Firefly
         protected override void OnCreateManager(int capacity)
         {
             _group = GetComponentGroup(
-                typeof(Disintegrator), typeof(Position), typeof(Facet), typeof(Renderer)
+                typeof(Particle), typeof(Position), typeof(Triangle), typeof(Renderer)
             );
         }
 
@@ -140,9 +140,9 @@ namespace Firefly
                 _group.SetFilter(renderer);
 
                 var job = new ReconstructionJob() {
-                    Disintegrators = _group.GetComponentDataArray<Disintegrator>(),
+                    Particles = _group.GetComponentDataArray<Particle>(),
                     Positions = _group.GetComponentDataArray<Position>(),
-                    Facets = _group.GetComponentDataArray<Facet>(),
+                    Triangles = _group.GetComponentDataArray<Triangle>(),
                     Vertices = renderer.Vertices,
                     Normals = renderer.Normals,
                     Counter = renderer.Counter

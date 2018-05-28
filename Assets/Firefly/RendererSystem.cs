@@ -17,7 +17,7 @@ namespace Firefly
 
         protected override void OnCreateManager(int capacity)
         {
-            _dependency = GetComponentGroup(typeof(Disintegrator), typeof(Renderer));
+            _dependency = GetComponentGroup(typeof(Particle), typeof(Renderer));
 
             // Allocate the temporary managed arrays.
             _vertexArray = new UnityEngine.Vector3[Renderer.MaxVertices];

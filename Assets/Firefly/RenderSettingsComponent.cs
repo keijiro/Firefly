@@ -12,5 +12,6 @@ namespace Firefly
         public bool ReceiveShadows;
     }
 
+    [UnityEngine.AddComponentMenu("Firefly/Firefly Render Settings")]
     public class RenderSettingsComponent : SharedComponentDataWrapper<RenderSettings> {}
 }
