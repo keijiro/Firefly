@@ -179,4 +179,31 @@ namespace Firefly
 
         #endregion
     }
+
+    // Preview in edit mode
+    [UnityEngine.ExecuteInEditMode]
+    class InstancePreviewSystem : ComponentSystem
+    {
+        struct Group
+        {
+            [ReadOnly] public SharedComponentDataArray<Instance> Instances;
+            [ReadOnly] public SharedComponentDataArray<RenderSettings> RenderSettings;
+            [ReadOnly] public ComponentArray<UnityEngine.Transform> Transforms;
+            public int Length;
+        }
+
+        [Inject] Group _group;
+
+        protected override void OnUpdate()
+        {
+            for (var i = 0; i < _group.Length; i++)
+            {
+                UnityEngine.Graphics.DrawMesh(
+                    _group.Instances[i].TemplateMesh,
+                    _group.Transforms[i].localToWorldMatrix,
+                    _group.RenderSettings[i].Material, 0
+                );
+            }
+        }
+    }
 }
