@@ -194,6 +194,10 @@ namespace Firefly
             };
             var jobHandle = job.Schedule(entityCount, 32);
 
+            // We want to do entity instantiation in parallel with the jobs,
+            // so let the jobs kick in immediately.
+            JobHandle.ScheduleBatchedJobs();
+
             // Create a renderer for this group.
             var renderer = new Renderer {
                 Settings = renderSettings,
