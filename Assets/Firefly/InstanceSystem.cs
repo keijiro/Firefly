@@ -1,8 +1,11 @@
+#define DEBUG_DIAGNOSTICS
+
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Firefly
 {
@@ -44,6 +47,12 @@ namespace Firefly
 
         protected override void OnUpdate()
         {
+        #if DEBUG_DIAGNOSTICS
+            var stopwatch = new Stopwatch();
+            stopwatch.Reset();
+            stopwatch.Start();
+        #endif
+
             //
             // There are three levels of loops in this system:
             //
@@ -55,6 +64,7 @@ namespace Firefly
             // Loop 3: Through the array of vertices in the template mesh given
             // via the instance setting.
             //
+
 
             // Loop 1: Iterate over the unique instance data entries.
             EntityManager.GetAllUniqueSharedComponentDatas(_instanceDatas);
@@ -104,6 +114,12 @@ namespace Firefly
             }
 
             _instanceDatas.Clear();
+
+        #if DEBUG_DIAGNOSTICS
+             stopwatch.Stop();
+             var time = 1000.0 * stopwatch.ElapsedTicks / Stopwatch.Frequency;
+             UnityEngine.Debug.Log("Instantiation: " + time + " ms");
+        #endif
         }
 
         #endregion
