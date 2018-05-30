@@ -1,7 +1,9 @@
 #define DEBUG_DIAGNOSTICS
 
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 using System.Collections.Generic;
@@ -46,12 +48,6 @@ namespace Firefly
 
         protected override void OnUpdate()
         {
-        #if DEBUG_DIAGNOSTICS
-            var stopwatch = new Stopwatch();
-            stopwatch.Reset();
-            stopwatch.Start();
-        #endif
-
             //
             // There are three levels of loops in this system:
             //
@@ -64,6 +60,11 @@ namespace Firefly
             // via the instance setting.
             //
 
+        #if DEBUG_DIAGNOSTICS
+            var stopwatch = new Stopwatch();
+            stopwatch.Reset();
+            stopwatch.Start();
+        #endif
 
             // Loop 1: Iterate over the unique instance data entries.
             EntityManager.GetAllUniqueSharedComponentDatas(_instanceDatas);
@@ -117,21 +118,82 @@ namespace Firefly
         #if DEBUG_DIAGNOSTICS
              stopwatch.Stop();
              var time = 1000.0 * stopwatch.ElapsedTicks / Stopwatch.Frequency;
-             UnityEngine.Debug.Log("Instantiation: " + time + " ms");
+             UnityEngine.Debug.Log("Instantiation time: " + time + " ms");
         #endif
         }
 
         #endregion
 
-        #region Internal methods
+        #region Jobified initializer
 
-        void CreateEntitiesOverMesh(
+        // We use parallel-for jobs to calculate the initial data for the
+        // components in the instanced entities. The primary motivation of this
+        // is to optimize the vector math operations with Burst -- We don't
+        // expect that parallelism gives a big performance boost.
+
+        [ComputeJobOptimization]
+        unsafe struct InitDataJob : IJobParallelFor
+        {
+            [ReadOnly, NativeDisableUnsafePtrRestriction] public void* Vertices;
+            [ReadOnly, NativeDisableUnsafePtrRestriction] public void* Indices;
+            [ReadOnly] public float4x4 Transform;
+
+            public NativeArray<Triangle> Triangles;
+            public NativeArray<Position> Positions;
+            public NativeArray<Particle> Particles;
+
+            public void Execute(int i)
+            {
+                var i1 = UnsafeUtility.ReadArrayElement<int>(Indices, i * 3);
+                var i2 = UnsafeUtility.ReadArrayElement<int>(Indices, i * 3 + 1);
+                var i3 = UnsafeUtility.ReadArrayElement<int>(Indices, i * 3 + 2);
+
+                var v1 = UnsafeUtility.ReadArrayElement<float3>(Vertices, i1);
+                var v2 = UnsafeUtility.ReadArrayElement<float3>(Vertices, i2);
+                var v3 = UnsafeUtility.ReadArrayElement<float3>(Vertices, i3);
+
+                v1 = math.mul(Transform, new float4(v1, 1)).xyz;
+                v2 = math.mul(Transform, new float4(v2, 1)).xyz;
+                v3 = math.mul(Transform, new float4(v3, 1)).xyz;
+
+                var vc = (v1 + v2 + v3) / 3;
+
+                Triangles[i] = new Triangle {
+                    Vertex1 = v1 - vc,
+                    Vertex2 = v2 - vc,
+                    Vertex3 = v3 - vc
+                };
+
+                Positions[i] = new Position {
+                    Value = vc
+                };
+
+                Particles[i] = new Particle {
+                    Random = Random.Value01((uint)i)
+                };
+            }
+        }
+
+        unsafe void CreateEntitiesOverMesh(
             UnityEngine.Transform transform,
             RenderSettings renderSettings,
             UnityEngine.Vector3 [] vertices,
             int [] indices
         )
         {
+            var entityCount = indices.Length / 3;
+
+            // Calculate the initial data with parallel-for jobs.
+            var job = new InitDataJob {
+                Vertices = UnsafeUtility.AddressOf(ref vertices[0]),
+                Indices = UnsafeUtility.AddressOf(ref indices[0]),
+                Transform = transform.localToWorldMatrix,
+                Triangles = new NativeArray<Triangle>(entityCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory),
+                Positions = new NativeArray<Position>(entityCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory),
+                Particles = new NativeArray<Particle>(entityCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory)
+            };
+            var jobHandle = job.Schedule(entityCount, 32);
+
             // Create a renderer for this group.
             var renderer = new Renderer {
                 Settings = renderSettings,
@@ -150,40 +212,27 @@ namespace Firefly
 
             // Create an array of clones as putting a clone on each triangle.
             var entities = new NativeArray<Entity>(
-                indices.Length / 3, Allocator.Temp,
+                entityCount, Allocator.Temp,
                 NativeArrayOptions.UninitializedMemory
             );
             EntityManager.Instantiate(defaultEntity, entities);
 
-            // Calculate the transform matrix.
-            var matrix = transform.localToWorldMatrix;
-
             // Set the initial data.
-            for (var i = 0; i < entities.Length; i++)
+            jobHandle.Complete();
+            for (var i = 0; i < entityCount; i++)
             {
                 var entity = entities[i];
-
-                var v1 = math.mul(matrix, new float4(vertices[indices[i * 3 + 0]], 1)).xyz;
-                var v2 = math.mul(matrix, new float4(vertices[indices[i * 3 + 1]], 1)).xyz;
-                var v3 = math.mul(matrix, new float4(vertices[indices[i * 3 + 2]], 1)).xyz;
-                var vc = (v1 + v2 + v3) / 3;
-
-                EntityManager.SetComponentData(entity, new Triangle {
-                    Vertex1 = v1 - vc, Vertex2 = v2 - vc, Vertex3 = v3 - vc
-                });
-
-                EntityManager.SetComponentData(entity, new Position {
-                    Value = vc
-                });
-
-                EntityManager.SetComponentData(entity, new Particle {
-                    Random = Random.Value01((uint)i)
-                });
+                EntityManager.SetComponentData(entity, job.Triangles[i]);
+                EntityManager.SetComponentData(entity, job.Positions[i]);
+                EntityManager.SetComponentData(entity, job.Particles[i]);
             }
 
             // Destroy the temporary objects.
             EntityManager.DestroyEntity(defaultEntity);
             entities.Dispose();
+            job.Triangles.Dispose();
+            job.Positions.Dispose();
+            job.Particles.Dispose();
         }
 
         #endregion
