@@ -23,8 +23,8 @@ namespace Firefly
         public const int MaxVertices = 510000;
         public RenderSettings Settings;
         public UnityEngine.Mesh WorkMesh;
-        public NativeArray<float3> Vertices;
-        public NativeArray<float3> Normals;
+        public UnityEngine.Vector3 [] Vertices;
+        public UnityEngine.Vector3 [] Normals;
         public NativeCounter Counter;
     }
 }

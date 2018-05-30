@@ -9,30 +9,14 @@ namespace Firefly
     {
         List<Renderer> _renderers = new List<Renderer>();
         ComponentGroup _dependency; // Just used to enable dependency tracking
-
-        // Managed arrays used to inject data into a mesh
-        UnityEngine.Vector3 [] _vertexArray;
-        UnityEngine.Vector3 [] _normalArray;
-        int [] _indexArray;
+        int [] _indexArray = new int [Renderer.MaxVertices];
 
         protected override void OnCreateManager(int capacity)
         {
             _dependency = GetComponentGroup(typeof(Particle), typeof(Renderer));
 
-            // Allocate the temporary managed arrays.
-            _vertexArray = new UnityEngine.Vector3[Renderer.MaxVertices];
-            _normalArray = new UnityEngine.Vector3[Renderer.MaxVertices];
-            _indexArray = new int[Renderer.MaxVertices];
-
             // Default index array
             for (var i = 0; i < Renderer.MaxVertices; i++) _indexArray[i] = i;
-        }
-
-        protected override void OnDestroyManager()
-        {
-            _vertexArray = null;
-            _normalArray = null;
-            _indexArray = null;
         }
 
         unsafe protected override void OnUpdate()
@@ -58,30 +42,16 @@ namespace Firefly
                     mesh.MarkDynamic();
                 }
 
-                // Copy the vertex/normal data into the managed buffers.
+                // Clear the unused part of the vertex buffer.
                 var vertexCount = renderer.Counter.Count * 3;
-
-                UnsafeUtility.MemCpy(
-                    UnsafeUtility.AddressOf(ref _vertexArray[0]),
-                    renderer.Vertices.GetUnsafePtr(),
-                    sizeof(float3) * vertexCount
-                );
-
-                UnsafeUtility.MemCpy(
-                    UnsafeUtility.AddressOf(ref _normalArray[0]),
-                    renderer.Normals.GetUnsafePtr(),
-                    sizeof(float3) * vertexCount
-                );
-
-                // Clear the rest of the managed vertex buffer.
                 UnsafeUtility.MemClear(
-                    UnsafeUtility.AddressOf(ref _vertexArray[vertexCount]),
+                    UnsafeUtility.AddressOf(ref renderer.Vertices[vertexCount]),
                     sizeof(float3) * (Renderer.MaxVertices - vertexCount)
                 );
 
                 // Update the vertex/normal array via the managed buffers.
-                mesh.vertices = _vertexArray;
-                mesh.normals = _normalArray;
+                mesh.vertices = renderer.Vertices;
+                mesh.normals = renderer.Normals;
 
                 if (!meshIsReady)
                 {

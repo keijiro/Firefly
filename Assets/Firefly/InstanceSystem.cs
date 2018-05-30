@@ -39,10 +39,9 @@ namespace Firefly
             foreach (var renderer in _toBeDisposed)
             {
                 UnityEngine.Object.Destroy(renderer.WorkMesh);
-                renderer.Vertices.Dispose();
-                renderer.Normals.Dispose();
                 renderer.Counter.Dispose();
             }
+            _toBeDisposed.Clear();
         }
 
         protected override void OnUpdate()
@@ -137,14 +136,8 @@ namespace Firefly
             var renderer = new Renderer {
                 Settings = renderSettings,
                 WorkMesh = new UnityEngine.Mesh(),
-                Vertices = new NativeArray<float3>(
-                    Renderer.MaxVertices, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory
-                ),
-                Normals = new NativeArray<float3>(
-                    Renderer.MaxVertices, Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory
-                ),
+                Vertices = new UnityEngine.Vector3 [Renderer.MaxVertices],
+                Normals = new UnityEngine.Vector3 [Renderer.MaxVertices],
                 Counter = new NativeCounter(Allocator.Persistent)
             };
 

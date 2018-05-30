@@ -11,14 +11,14 @@ namespace Firefly
     class ParticleReconstructionSystem : JobComponentSystem
     {
         [ComputeJobOptimization]
-        struct ReconstructionJob : IJobParallelFor
+        unsafe struct ReconstructionJob : IJobParallelFor
         {
             [ReadOnly] public ComponentDataArray<Particle> Particles;
             [ReadOnly] public ComponentDataArray<Position> Positions;
             [ReadOnly] public ComponentDataArray<Triangle> Triangles;
 
-            [NativeDisableParallelForRestriction] public NativeArray<float3> Vertices;
-            [NativeDisableParallelForRestriction] public NativeArray<float3> Normals;
+            [NativeDisableUnsafePtrRestriction] public void* Vertices;
+            [NativeDisableUnsafePtrRestriction] public void* Normals;
 
             public NativeCounter.Concurrent Counter;
 
@@ -26,12 +26,14 @@ namespace Firefly
             {
                 var i = Counter.Increment() * 3;
 
-                Vertices[i + 0] = v1;
-                Vertices[i + 1] = v2;
-                Vertices[i + 2] = v3;
+                UnsafeUtility.WriteArrayElement(Vertices, i + 0, v1);
+                UnsafeUtility.WriteArrayElement(Vertices, i + 1, v2);
+                UnsafeUtility.WriteArrayElement(Vertices, i + 2, v3);
 
-                Normals[i + 0] = Normals[i + 1] = Normals[i + 2] =
-                    math.normalize(math.cross(v2 - v1, v3 - v1));
+                var n = math.normalize(math.cross(v2 - v1, v3 - v1));
+                UnsafeUtility.WriteArrayElement(Normals, i + 0, n);
+                UnsafeUtility.WriteArrayElement(Normals, i + 1, n);
+                UnsafeUtility.WriteArrayElement(Normals, i + 2, n);
             }
 
             public void Execute(int index)
@@ -91,7 +93,7 @@ namespace Firefly
             );
         }
 
-        protected override JobHandle OnUpdate(JobHandle deps)
+        unsafe protected override JobHandle OnUpdate(JobHandle deps)
         {
             EntityManager.GetAllUniqueSharedComponentDatas(_renderers);
 
@@ -110,8 +112,8 @@ namespace Firefly
                     Particles = _group.GetComponentDataArray<Particle>(),
                     Positions = _group.GetComponentDataArray<Position>(),
                     Triangles = _group.GetComponentDataArray<Triangle>(),
-                    Vertices = renderer.Vertices,
-                    Normals = renderer.Normals,
+                    Vertices = UnsafeUtility.AddressOf(ref renderer.Vertices[0]),
+                    Normals = UnsafeUtility.AddressOf(ref renderer.Normals[0]),
                     Counter = renderer.Counter
                 };
 
