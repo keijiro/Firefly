@@ -18,6 +18,9 @@ namespace Firefly
         public float Random;
     }
 
+    public struct SimpleParticle : ISharedComponentData {}
+    public struct ButterflyParticle : ISharedComponentData {}
+
     public struct Renderer : ISharedComponentData
     {
         public const int MaxVertices = 510000;
@@ -26,5 +29,6 @@ namespace Firefly
         public UnityEngine.Vector3 [] Vertices;
         public UnityEngine.Vector3 [] Normals;
         public NativeCounter Counter;
+        public NativeCounter.Concurrent ConcurrentCounter;
     }
 }

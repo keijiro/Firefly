@@ -199,30 +199,43 @@ namespace Firefly
             JobHandle.ScheduleBatchedJobs();
 
             // Create a renderer for this group.
+            var counter = new NativeCounter(Allocator.Persistent);
             var renderer = new Renderer {
                 Settings = renderSettings,
                 WorkMesh = new UnityEngine.Mesh(),
                 Vertices = new UnityEngine.Vector3 [Renderer.MaxVertices],
                 Normals = new UnityEngine.Vector3 [Renderer.MaxVertices],
-                Counter = new NativeCounter(Allocator.Persistent)
+                Counter = counter, ConcurrentCounter = counter
             };
 
             // We want this renderer object disposed at the end of world.
             _toBeDisposed.Add(renderer);
 
-            // Create the default entity.
-            var defaultEntity = EntityManager.CreateEntity(_archetype);
-            EntityManager.SetSharedComponentData(defaultEntity, renderer);
+            // Create the default entities.
+            var defaultEntity1 = EntityManager.CreateEntity(_archetype);
+            var defaultEntity2 = EntityManager.CreateEntity(_archetype);
+
+            EntityManager.SetSharedComponentData(defaultEntity1, renderer);
+            EntityManager.SetSharedComponentData(defaultEntity2, renderer);
+
+            EntityManager.AddSharedComponentData(defaultEntity1, default(SimpleParticle));
+            EntityManager.AddSharedComponentData(defaultEntity2, default(ButterflyParticle));
 
             // Create an array of clones as putting a clone on each triangle.
             var entities = new NativeArray<Entity>(
                 entityCount, Allocator.Temp,
                 NativeArrayOptions.UninitializedMemory
             );
-            EntityManager.Instantiate(defaultEntity, entities);
+
+            for (var i = 0; i < entityCount; i++)
+            {
+                var sel = Random.Value01((uint)i) < 0.5f;
+                entities[i] = EntityManager.Instantiate(sel ? defaultEntity1 : defaultEntity2);
+            }
 
             // Set the initial data.
             jobHandle.Complete();
+
             for (var i = 0; i < entityCount; i++)
             {
                 var entity = entities[i];
@@ -232,8 +245,11 @@ namespace Firefly
             }
 
             // Destroy the temporary objects.
-            EntityManager.DestroyEntity(defaultEntity);
             entities.Dispose();
+
+            EntityManager.DestroyEntity(defaultEntity1);
+            EntityManager.DestroyEntity(defaultEntity2);
+
             job.Triangles.Dispose();
             job.Positions.Dispose();
             job.Particles.Dispose();

@@ -6,7 +6,6 @@ using Unity.Mathematics;
 
 namespace Firefly
 {
-    [UpdateBefore(typeof(ParticleReconstructionSystem))]
     class NoiseEffectorSystem : JobComponentSystem
     {
         [ComputeJobOptimization]

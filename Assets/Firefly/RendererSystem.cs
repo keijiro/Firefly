@@ -25,8 +25,9 @@ namespace Firefly
 
             // Iterate over the renderer components.
             EntityManager.GetAllUniqueSharedComponentDatas(_renderers);
-            foreach (var renderer in _renderers)
+            for (var i = 0; i < _renderers.Count; i++)
             {
+                var renderer = _renderers[i];
                 var mesh = renderer.WorkMesh;
 
                 // Do nothing if no mesh (== default empty data)
@@ -68,6 +69,9 @@ namespace Firefly
                 UnityEngine.Graphics.DrawMesh(
                     mesh, identityMatrix, renderer.Settings.Material, 0
                 );
+
+                // Reset the triangle counter for the next frame.
+                renderer.Counter.Count = 0;
             }
 
             _renderers.Clear();

@@ -1,4 +1,4 @@
-﻿using Unity.Collections;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
@@ -8,7 +8,7 @@ using System.Collections.Generic;
 
 namespace Firefly
 {
-    class ParticleReconstructionSystem : JobComponentSystem
+    class SimpleParticleSystem : JobComponentSystem
     {
         [ComputeJobOptimization]
         unsafe struct ReconstructionJob : IJobParallelFor
@@ -38,47 +38,14 @@ namespace Firefly
 
             public void Execute(int index)
             {
-                const float size = 0.005f;
-
-                var p = Particles[index];
-
-                var az = p.Velocity + 0.001f;
-                var ax = math.cross(new float3(0, 1, 0), az);
-                var ay = math.cross(az, ax);
-
-                var freq = 8 + p.Random * 20;
-                var flap = math.sin(freq * p.Life);
-
-                ax = math.normalize(ax) * size;
-                ay = math.normalize(ay) * size * flap;
-                az = math.normalize(az) * size;
-
                 var pos = Positions[index].Value;
                 var face = Triangles[index];
 
-                var va1 = pos + face.Vertex1;
-                var va2 = pos + face.Vertex2;
-                var va3 = pos + face.Vertex3;
+                var v1 = pos + face.Vertex1;
+                var v2 = pos + face.Vertex2;
+                var v3 = pos + face.Vertex3;
 
-                var vb1 = pos + az * 0.2f;
-                var vb2 = pos - az * 0.2f;
-                var vb3 = pos - ax + ay + az;
-                var vb4 = pos - ax + ay - az;
-                var vb5 = vb3 + ax * 2;
-                var vb6 = vb4 + ax * 2;
-
-                var p_t = math.saturate(p.Life);
-                var v1 = math.lerp(va1, vb1, p_t);
-                var v2 = math.lerp(va2, vb2, p_t);
-                var v3 = math.lerp(va3, vb3, p_t);
-                var v4 = math.lerp(va3, vb4, p_t);
-                var v5 = math.lerp(va3, vb5, p_t);
-                var v6 = math.lerp(va3, vb6, p_t);
-
-                AddTriangle(v1, v2, v5);
-                AddTriangle(v5, v2, v6);
-                AddTriangle(v3, v4, v1);
-                AddTriangle(v1, v4, v2);
+                AddTriangle(v1, v2, v3);
             }
         }
 
@@ -88,7 +55,7 @@ namespace Firefly
         protected override void OnCreateManager(int capacity)
         {
             _group = GetComponentGroup(
-                typeof(Renderer), // shared
+                typeof(Renderer), typeof(SimpleParticle), // shared
                 typeof(Particle), typeof(Position), typeof(Triangle)
             );
         }
@@ -103,9 +70,7 @@ namespace Firefly
                 if (renderer.WorkMesh == null) continue;
 
                 _group.SetFilter(renderer);
-
-                // Reset the triangle counter.
-                renderer.Counter.Count = 0;
+                if (_group.CalculateLength() == 0) continue;
 
                 // Create a reconstruction job and add it to the job chain.
                 var job = new ReconstructionJob() {
@@ -114,7 +79,7 @@ namespace Firefly
                     Triangles = _group.GetComponentDataArray<Triangle>(),
                     Vertices = UnsafeUtility.AddressOf(ref renderer.Vertices[0]),
                     Normals = UnsafeUtility.AddressOf(ref renderer.Normals[0]),
-                    Counter = renderer.Counter
+                    Counter = renderer.ConcurrentCounter
                 };
 
                 deps = job.Schedule(_group.CalculateLength(), 16, deps);
