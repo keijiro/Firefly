@@ -38,11 +38,6 @@ namespace Firefly
         unsafe protected override void OnUpdate()
         {
             var identityMatrix = UnityEngine.Matrix4x4.identity;
-            var copySize = sizeof(float3) * Renderer.MaxVertices;
-
-            // Pointers to the temporary managed arrays
-            var pVArray = UnsafeUtility.AddressOf(ref _vertexArray[0]);
-            var pNArray = UnsafeUtility.AddressOf(ref _normalArray[0]);
 
             // Iterate over the renderer components.
             EntityManager.GetAllUniqueSharedComponentDatas(_renderers);
@@ -63,9 +58,28 @@ namespace Firefly
                     mesh.MarkDynamic();
                 }
 
-                // Update the vertex/normal array via managed arrays.
-                UnsafeUtility.MemCpy(pVArray, renderer.Vertices.GetUnsafePtr(), copySize);
-                UnsafeUtility.MemCpy(pNArray, renderer.Normals.GetUnsafePtr(), copySize);
+                // Copy the vertex/normal data into the managed buffers.
+                var vertexCount = renderer.Counter.Count * 3;
+
+                UnsafeUtility.MemCpy(
+                    UnsafeUtility.AddressOf(ref _vertexArray[0]),
+                    renderer.Vertices.GetUnsafePtr(),
+                    sizeof(float3) * vertexCount
+                );
+
+                UnsafeUtility.MemCpy(
+                    UnsafeUtility.AddressOf(ref _normalArray[0]),
+                    renderer.Normals.GetUnsafePtr(),
+                    sizeof(float3) * vertexCount
+                );
+
+                // Clear the rest of the managed vertex buffer.
+                UnsafeUtility.MemClear(
+                    UnsafeUtility.AddressOf(ref _vertexArray[vertexCount]),
+                    sizeof(float3) * (Renderer.MaxVertices - vertexCount)
+                );
+
+                // Update the vertex/normal array via the managed buffers.
                 mesh.vertices = _vertexArray;
                 mesh.normals = _normalArray;
 
