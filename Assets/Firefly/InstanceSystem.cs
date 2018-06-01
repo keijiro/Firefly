@@ -97,17 +97,11 @@ namespace Firefly
                 // Loop 2: Iterate over the instance entities.
                 for (var i = 0; i < instanceEntities.Length; i++)
                 {
-                    var instanceEntity = instanceEntities[i];
-                    var rendererSettings = EntityManager.
-                        GetSharedComponentData<RenderSettings>(instanceEntity);
-
                     // Loop 3: Iterate over the vertices in the template mesh.
-                    CreateEntitiesOverMesh(
-                        transforms[i], rendererSettings, vertices, indices
-                    );
+                    CreateEntitiesOverMesh(instanceEntities[i], transforms[i], vertices, indices); 
 
                     // Remove the instance component from the entity.
-                    EntityManager.RemoveComponent(instanceEntity, typeof(Instance));
+                    EntityManager.RemoveComponent(instanceEntities[i], typeof(Instance));
                 }
 
                 instanceEntities.Dispose();
@@ -120,6 +114,66 @@ namespace Firefly
              var time = 1000.0 * stopwatch.ElapsedTicks / Stopwatch.Frequency;
              UnityEngine.Debug.Log("Instantiation time: " + time + " ms");
         #endif
+        }
+
+        #endregion
+
+        #region Default entity table
+
+        // This table is used to create particle entities with a weighted
+        // random distribution of particle types. It stores selection weights
+        // and default entities that allows creating entities with instancing.
+
+        struct DefaultEntityEntry
+        {
+            public float Weight;
+            public Entity Entity;
+        }
+
+        DefaultEntityEntry[] _defaultEntities = new DefaultEntityEntry[16];
+
+        DefaultEntityEntry CreateDefaultEntity<T>(Entity sourceEntity, ref Renderer renderer)
+            where T : struct, ISharedComponentData, IParticleVariant
+        {
+            var variant = EntityManager.GetSharedComponentData<T>(sourceEntity);
+            var entity = EntityManager.CreateEntity(_archetype);
+            EntityManager.SetSharedComponentData(entity, renderer);
+            EntityManager.AddSharedComponentData(entity, variant);
+            return new DefaultEntityEntry { Weight = variant.GetWeight(), Entity = entity };
+        }
+
+        void NormalizeDefaultEntityWeights()
+        {
+            var total = 0.0f;
+            for (var i = 0; i < _defaultEntities.Length; i++)
+                total += _defaultEntities[i].Weight;
+
+            var subtotal = 0.0f;
+            for (var i = 0; i < _defaultEntities.Length; i++)
+            {
+                subtotal += _defaultEntities[i].Weight / total;
+                _defaultEntities[i].Weight = subtotal;
+            }
+        }
+
+        Entity SelectRandomDefaultEntity(uint seed)
+        {
+            var rand = Random.Value01(seed);
+            for (var i = 0; i < _defaultEntities.Length; i++)
+                if (rand < _defaultEntities[i].Weight)
+                    return _defaultEntities[i].Entity;
+            return Entity.Null;
+        }
+
+        void CleanupDefaultEntityTable()
+        {
+            for (var i = 0; i < _defaultEntities.Length; i++)
+            {
+                var entity = _defaultEntities[i].Entity;
+                if (EntityManager.Exists(entity))
+                    EntityManager.DestroyEntity(entity);
+                _defaultEntities[i] = default(DefaultEntityEntry);
+            }
         }
 
         #endregion
@@ -175,8 +229,8 @@ namespace Firefly
         }
 
         unsafe void CreateEntitiesOverMesh(
+            Entity sourceEntity,
             UnityEngine.Transform transform,
-            RenderSettings renderSettings,
             UnityEngine.Vector3 [] vertices,
             int [] indices
         )
@@ -201,7 +255,7 @@ namespace Firefly
             // Create a renderer for this group.
             var counter = new NativeCounter(Allocator.Persistent);
             var renderer = new Renderer {
-                Settings = renderSettings,
+                Settings = EntityManager.GetSharedComponentData<RenderSettings>(sourceEntity),
                 WorkMesh = new UnityEngine.Mesh(),
                 Vertices = new UnityEngine.Vector3 [Renderer.MaxVertices],
                 Normals = new UnityEngine.Vector3 [Renderer.MaxVertices],
@@ -211,26 +265,21 @@ namespace Firefly
             // We want this renderer object disposed at the end of world.
             _toBeDisposed.Add(renderer);
 
-            // Create the default entities.
-            var defaultEntity1 = EntityManager.CreateEntity(_archetype);
-            var defaultEntity2 = EntityManager.CreateEntity(_archetype);
-
-            EntityManager.SetSharedComponentData(defaultEntity1, renderer);
-            EntityManager.SetSharedComponentData(defaultEntity2, renderer);
-
-            EntityManager.AddSharedComponentData(defaultEntity1, default(SimpleParticle));
-            EntityManager.AddSharedComponentData(defaultEntity2, default(ButterflyParticle));
+            // Initialize the default entity table.
+            _defaultEntities[0] = CreateDefaultEntity<SimpleParticle>(sourceEntity, ref renderer);
+            _defaultEntities[1] = CreateDefaultEntity<ButterflyParticle>(sourceEntity, ref renderer);
+            NormalizeDefaultEntityWeights();
 
             // Create an array of clones as putting a clone on each triangle.
             var entities = new NativeArray<Entity>(
-                entityCount, Allocator.Temp,
-                NativeArrayOptions.UninitializedMemory
+                entityCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory
             );
 
             for (var i = 0; i < entityCount; i++)
             {
-                var sel = Random.Value01((uint)i) < 0.5f;
-                entities[i] = EntityManager.Instantiate(sel ? defaultEntity1 : defaultEntity2);
+                entities[i] = EntityManager.Instantiate(
+                    SelectRandomDefaultEntity((uint)i)
+                );
             }
 
             // Set the initial data.
@@ -247,8 +296,7 @@ namespace Firefly
             // Destroy the temporary objects.
             entities.Dispose();
 
-            EntityManager.DestroyEntity(defaultEntity1);
-            EntityManager.DestroyEntity(defaultEntity2);
+            CleanupDefaultEntityTable();
 
             job.Triangles.Dispose();
             job.Positions.Dispose();

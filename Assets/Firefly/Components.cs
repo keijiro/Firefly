@@ -18,8 +18,10 @@ namespace Firefly
         public float Random;
     }
 
-    public struct SimpleParticle : ISharedComponentData {}
-    public struct ButterflyParticle : ISharedComponentData {}
+    public interface IParticleVariant
+    {
+        float GetWeight();
+    }
 
     public struct Renderer : ISharedComponentData
     {
