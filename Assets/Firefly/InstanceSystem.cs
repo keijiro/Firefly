@@ -11,7 +11,7 @@ using System.Diagnostics;
 
 namespace Firefly
 {
-    class InstanceSystem : ComponentSystem
+    sealed class InstanceSystem : ComponentSystem
     {
         #region ComponentSystem implementation
 
@@ -308,7 +308,7 @@ namespace Firefly
 
     // Preview in edit mode
     [UnityEngine.ExecuteInEditMode]
-    class InstancePreviewSystem : ComponentSystem
+    sealed class InstancePreviewSystem : ComponentSystem
     {
         struct Group
         {

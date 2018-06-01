@@ -5,7 +5,7 @@ using Unity.Mathematics;
 namespace Firefly
 {
     [System.Serializable]
-    public struct RenderSettings : ISharedComponentData
+    struct RenderSettings : ISharedComponentData
     {
         public UnityEngine.Material Material;
         public UnityEngine.Rendering.ShadowCastingMode CastShadows;
@@ -13,5 +13,5 @@ namespace Firefly
     }
 
     [UnityEngine.AddComponentMenu("Firefly/Firefly Render Settings")]
-    public class RenderSettingsComponent : SharedComponentDataWrapper<RenderSettings> {}
+    sealed class RenderSettingsComponent : SharedComponentDataWrapper<RenderSettings> {}
 }

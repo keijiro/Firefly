@@ -11,7 +11,7 @@ namespace Firefly
     }
 
     [UnityEngine.AddComponentMenu("Firefly/Firefly Noise Effector")]
-    class NoiseEffectorComponent : ComponentDataWrapper<NoiseEffector>
+    sealed class NoiseEffectorComponent : ComponentDataWrapper<NoiseEffector>
     {
         void OnDrawGizmos()
         {

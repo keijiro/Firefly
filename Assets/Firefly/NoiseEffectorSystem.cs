@@ -6,7 +6,7 @@ using Unity.Mathematics;
 
 namespace Firefly
 {
-    class NoiseEffectorSystem : JobComponentSystem
+    sealed class NoiseEffectorSystem : JobComponentSystem
     {
         [ComputeJobOptimization]
         struct AnimationJob : IJobProcessComponentData<Particle, Position>

@@ -9,5 +9,5 @@ namespace Firefly
     }
 
     [UnityEngine.AddComponentMenu("Firefly/Firefly Instance")]
-    class InstanceComponent : SharedComponentDataWrapper<Instance> {}
+    sealed class InstanceComponent : SharedComponentDataWrapper<Instance> {}
 }

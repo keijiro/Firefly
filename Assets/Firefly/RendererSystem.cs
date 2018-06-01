@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace Firefly
 {
-    class RendererSystem : ComponentSystem
+    sealed class RendererSystem : ComponentSystem
     {
         List<Renderer> _renderers = new List<Renderer>();
         ComponentGroup _dependency; // Just used to enable dependency tracking

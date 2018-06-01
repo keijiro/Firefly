@@ -10,5 +10,5 @@ namespace Firefly
     }
 
     [UnityEngine.AddComponentMenu("Firefly/Firefly Simple Particle")]
-    class SimpleParticleComponent : SharedComponentDataWrapper<SimpleParticle> {}
+    sealed class SimpleParticleComponent : SharedComponentDataWrapper<SimpleParticle> {}
 }

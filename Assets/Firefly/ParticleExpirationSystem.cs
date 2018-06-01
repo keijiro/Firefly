@@ -4,9 +4,9 @@ using Unity.Jobs;
 
 namespace Firefly
 {
-    class ParticleExpirationBarrier : BarrierSystem {}
+    sealed class ParticleExpirationBarrier : BarrierSystem {}
 
-    class ParticleExpirationSystem : JobComponentSystem
+    sealed class ParticleExpirationSystem : JobComponentSystem
     {
         [ComputeJobOptimization]
         struct ParticleExpirationJob : IJob

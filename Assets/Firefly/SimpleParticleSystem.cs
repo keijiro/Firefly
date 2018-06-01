@@ -8,7 +8,7 @@ using System.Collections.Generic;
 
 namespace Firefly
 {
-    class SimpleParticleSystem : JobComponentSystem
+    sealed class SimpleParticleSystem : JobComponentSystem
     {
         [ComputeJobOptimization]
         unsafe struct ReconstructionJob : IJobParallelFor
