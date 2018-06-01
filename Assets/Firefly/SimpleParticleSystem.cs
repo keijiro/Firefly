@@ -8,6 +8,9 @@ using System.Collections.Generic;
 
 namespace Firefly
 {
+    sealed class SimpleParticleExpirationSystem
+        : ParticleExpirationSystemBase<SimpleParticle> {}
+
     sealed class SimpleParticleSystem : JobComponentSystem
     {
         [ComputeJobOptimization]

@@ -1,48 +1,68 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using System.Collections.Generic;
 
 namespace Firefly
 {
     sealed class ParticleExpirationBarrier : BarrierSystem {}
 
-    sealed class ParticleExpirationSystem : JobComponentSystem
+    [ComputeJobOptimization]
+    struct ParticleExpirationJob : IJob
     {
-        [ComputeJobOptimization]
-        struct ParticleExpirationJob : IJob
+        [ReadOnly] public EntityArray Entities;
+        [ReadOnly] public ComponentDataArray<Particle> Particles;
+
+        public float Life;
+        public EntityCommandBuffer CommandBuffer;
+
+        public void Execute()
         {
-            [ReadOnly] public EntityArray Entities;
-            [ReadOnly] public ComponentDataArray<Particle> Particles;
-
-            public EntityCommandBuffer CommandBuffer;
-
-            public void Execute()
+            for (var i = 0; i < Entities.Length; i++)
             {
-                for (var i = 0; i < Entities.Length; i++)
-                {
-                    if (Particles[i].Time > 3 + Particles[i].Random * 5)
-                        CommandBuffer.DestroyEntity(Entities[i]);
-                }
+                var life = Life * (Particles[i].Random + 1) / 2;
+                if (Particles[i].Time > life)
+                    CommandBuffer.DestroyEntity(Entities[i]);
             }
         }
+    }
 
-        struct Group
+    class ParticleExpirationSystemBase<T> : JobComponentSystem
+        where T : struct, ISharedComponentData, IParticleVariant
+    {
+        [Inject] protected ParticleExpirationBarrier _barrier;
+
+        List<T> _variants = new List<T>();
+
+        ComponentGroup _group;
+
+        protected override void OnCreateManager(int capacity)
         {
-            [ReadOnly] public EntityArray Entities;
-            [ReadOnly] public ComponentDataArray<Particle> Particles;
+            _group = GetComponentGroup(typeof(Particle), typeof(T));
         }
-
-        [Inject] ParticleExpirationBarrier _barrier;
-        [Inject] Group _group;
 
         protected override JobHandle OnUpdate(JobHandle deps)
         {
-            var job = new ParticleExpirationJob() {
-                Entities = _group.Entities,
-                Particles = _group.Particles,
-                CommandBuffer = _barrier.CreateCommandBuffer()
-            };
-            return job.Schedule(deps);
+            var commandBuffer = _barrier.CreateCommandBuffer();
+
+            EntityManager.GetAllUniqueSharedComponentDatas(_variants);
+
+            foreach (var variant in _variants)
+            {
+                _group.SetFilter(variant);
+
+                var job = new ParticleExpirationJob() {
+                    Entities = _group.GetEntityArray(),
+                    Particles = _group.GetComponentDataArray<Particle>(),
+                    Life = variant.GetLife(),
+                    CommandBuffer = commandBuffer
+                };
+                deps = job.Schedule(deps);
+            }
+
+            _variants.Clear();
+
+            return deps;
         }
     }
 }
