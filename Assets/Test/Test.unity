@@ -849,6 +849,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_SerializedData:
     Weight: 1
+    Life: 3
 --- !u!114 &1915976097
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -862,6 +863,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_SerializedData:
     Weight: 1
+    Life: 1
 --- !u!114 &1915976098
 MonoBehaviour:
   m_ObjectHideFlags: 0

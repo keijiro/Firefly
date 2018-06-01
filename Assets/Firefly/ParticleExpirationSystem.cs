@@ -20,7 +20,7 @@ namespace Firefly
             {
                 for (var i = 0; i < Entities.Length; i++)
                 {
-                    if (Particles[i].Life > 3 + Particles[i].Random * 5)
+                    if (Particles[i].Time > 3 + Particles[i].Random * 5)
                         CommandBuffer.DestroyEntity(Entities[i]);
                 }
             }

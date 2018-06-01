@@ -7,6 +7,9 @@ namespace Firefly
     {
         public float Weight;
         public float GetWeight() { return Weight; }
+
+        public float Life;
+        public float GetLife() { return Life; }
     }
 
     [UnityEngine.AddComponentMenu("Firefly/Firefly Butterfly Particle")]

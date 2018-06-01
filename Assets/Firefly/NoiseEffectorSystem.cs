@@ -43,7 +43,7 @@ namespace Firefly
                 var dt = DeltaTime * Amplitude(pos);
 
                 particle.Velocity += acc * dt;
-                particle.Life += dt;
+                particle.Time += dt;
 
                 position.Value += particle.Velocity * dt;
             }

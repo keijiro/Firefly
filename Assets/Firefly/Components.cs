@@ -14,13 +14,14 @@ namespace Firefly
     struct Particle : IComponentData
     {
         public float3 Velocity;
-        public float Life;
+        public float Time;
         public float Random;
     }
 
     interface IParticleVariant
     {
         float GetWeight();
+        float GetLife();
     }
 
     struct Renderer : ISharedComponentData

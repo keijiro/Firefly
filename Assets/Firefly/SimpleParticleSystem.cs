@@ -29,7 +29,7 @@ namespace Firefly
 
                 var fwd = particle.Velocity + 1e-4f;
                 var axis = math.normalize(math.cross(fwd, face.Vertex1));
-                var rot = math.axisAngle(axis, particle.Life * 3);
+                var rot = math.axisAngle(axis, particle.Time * 3);
 
                 var pos = Positions[index].Value;
                 var v1 = pos + math.mul(rot, face.Vertex1);
@@ -66,10 +66,10 @@ namespace Firefly
             for (var i = 0; i < _renderers.Count; i++)
             {
                 var renderer = _renderers[i];
-                if (renderer.WorkMesh == null) continue;
-
                 _group.SetFilter(renderer);
-                if (_group.CalculateLength() == 0) continue;
+
+                var count = _group.CalculateLength();
+                if (count == 0) continue;
 
                 // Create a reconstruction job and add it to the job chain.
                 var job = new ReconstructionJob() {
@@ -80,8 +80,7 @@ namespace Firefly
                     Normals = UnsafeUtility.AddressOf(ref renderer.Normals[0]),
                     Counter = renderer.ConcurrentCounter
                 };
-
-                deps = job.Schedule(_group.CalculateLength(), 8, deps);
+                deps = job.Schedule(count, 8, deps);
             }
 
             _renderers.Clear();

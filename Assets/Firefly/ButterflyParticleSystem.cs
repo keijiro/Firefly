@@ -47,7 +47,7 @@ namespace Firefly
                 var ay = math.cross(az, ax);
 
                 var freq = 8 + p.Random * 20;
-                var flap = math.sin(freq * p.Life);
+                var flap = math.sin(freq * p.Time);
 
                 ax = math.normalize(ax) * size;
                 ay = math.normalize(ay) * size * flap;
@@ -67,7 +67,7 @@ namespace Firefly
                 var vb5 = vb3 + ax * 2;
                 var vb6 = vb4 + ax * 2;
 
-                var p_t = math.saturate(p.Life);
+                var p_t = math.saturate(p.Time);
                 var v1 = math.lerp(va1, vb1, p_t);
                 var v2 = math.lerp(va2, vb2, p_t);
                 var v3 = math.lerp(va3, vb3, p_t);
@@ -100,10 +100,10 @@ namespace Firefly
             for (var i = 0; i < _renderers.Count; i++)
             {
                 var renderer = _renderers[i];
-                if (renderer.WorkMesh == null) continue;
-
                 _group.SetFilter(renderer);
-                if (_group.CalculateLength() == 0) continue;
+
+                var count = _group.CalculateLength();
+                if (count == 0) continue;
 
                 // Create a reconstruction job and add it to the job chain.
                 var job = new ReconstructionJob() {
@@ -114,8 +114,7 @@ namespace Firefly
                     Normals = UnsafeUtility.AddressOf(ref renderer.Normals[0]),
                     Counter = renderer.ConcurrentCounter
                 };
-
-                deps = job.Schedule(_group.CalculateLength(), 16, deps);
+                deps = job.Schedule(count, 8, deps);
             }
 
             _renderers.Clear();
