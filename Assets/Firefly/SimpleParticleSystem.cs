@@ -22,10 +22,21 @@ namespace Firefly
 
             public NativeCounter.Concurrent Counter;
 
-            void AddTriangle(float3 v1, float3 v2, float3 v3)
+            public void Execute(int index)
             {
-                var i = Counter.Increment() * 3;
+                var particle = Particles[index];
+                var face = Triangles[index];
 
+                var fwd = particle.Velocity + 1e-4f;
+                var axis = math.normalize(math.cross(fwd, face.Vertex1));
+                var rot = math.axisAngle(axis, particle.Life * 3);
+
+                var pos = Positions[index].Value;
+                var v1 = pos + math.mul(rot, face.Vertex1);
+                var v2 = pos + math.mul(rot, face.Vertex2);
+                var v3 = pos + math.mul(rot, face.Vertex3);
+
+                var i = Counter.Increment() * 3;
                 UnsafeUtility.WriteArrayElement(Vertices, i + 0, v1);
                 UnsafeUtility.WriteArrayElement(Vertices, i + 1, v2);
                 UnsafeUtility.WriteArrayElement(Vertices, i + 2, v3);
@@ -34,18 +45,6 @@ namespace Firefly
                 UnsafeUtility.WriteArrayElement(Normals, i + 0, n);
                 UnsafeUtility.WriteArrayElement(Normals, i + 1, n);
                 UnsafeUtility.WriteArrayElement(Normals, i + 2, n);
-            }
-
-            public void Execute(int index)
-            {
-                var pos = Positions[index].Value;
-                var face = Triangles[index];
-
-                var v1 = pos + face.Vertex1;
-                var v2 = pos + face.Vertex2;
-                var v3 = pos + face.Vertex3;
-
-                AddTriangle(v1, v2, v3);
             }
         }
 
@@ -82,7 +81,7 @@ namespace Firefly
                     Counter = renderer.ConcurrentCounter
                 };
 
-                deps = job.Schedule(_group.CalculateLength(), 16, deps);
+                deps = job.Schedule(_group.CalculateLength(), 8, deps);
             }
 
             _renderers.Clear();
