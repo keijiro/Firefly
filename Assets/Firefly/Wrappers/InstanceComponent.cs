@@ -1,4 +1,4 @@
-﻿namespace Firefly
+namespace Firefly
 {
     [UnityEngine.AddComponentMenu("Firefly/Firefly Instance")]
     sealed class InstanceComponent :
