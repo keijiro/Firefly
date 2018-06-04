@@ -9,19 +9,20 @@ namespace Firefly
 {
     [ComputeJobOptimization]
     unsafe struct ButterflyReconstructionJob :
-        IJobParallelFor, IParticleReconstructionJob
+        IJobParallelFor, IParticleReconstructionJob<ButterflyParticle>
     {
-        [ReadOnly] public ComponentDataArray<Particle> Particles;
-        [ReadOnly] public ComponentDataArray<Position> Positions;
-        [ReadOnly] public ComponentDataArray<Triangle> Triangles;
-        [ReadOnly] public SharedComponentDataArray<ButterflyParticle> Variants;
+        [ReadOnly] ComponentDataArray<Particle> Particles;
+        [ReadOnly] ComponentDataArray<Position> Positions;
+        [ReadOnly] ComponentDataArray<Triangle> Triangles;
 
-        [NativeDisableUnsafePtrRestriction] public void* Vertices;
-        [NativeDisableUnsafePtrRestriction] public void* Normals;
+        [NativeDisableUnsafePtrRestriction] void* Vertices;
+        [NativeDisableUnsafePtrRestriction] void* Normals;
 
-        public NativeCounter.Concurrent Counter;
+        ButterflyParticle Variant;
+        NativeCounter.Concurrent Counter;
 
         public void Initialize(
+            ButterflyParticle variant,
             ComponentGroup group,
             UnityEngine.Vector3[] vertices,
             UnityEngine.Vector3[] normals,
@@ -31,9 +32,9 @@ namespace Firefly
             Particles = group.GetComponentDataArray<Particle>();
             Positions = group.GetComponentDataArray<Position>();
             Triangles = group.GetComponentDataArray<Triangle>();
-            Variants = group.GetSharedComponentDataArray<ButterflyParticle>();
             Vertices = UnsafeUtility.AddressOf(ref vertices[0]);
             Normals = UnsafeUtility.AddressOf(ref normals[0]);
+            Variant = variant;
             Counter = counter;
         }
 

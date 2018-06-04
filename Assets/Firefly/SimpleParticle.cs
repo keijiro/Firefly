@@ -9,19 +9,20 @@ namespace Firefly
 {
     [ComputeJobOptimization]
     unsafe struct SimpleReconstructionJob :
-        IJobParallelFor, IParticleReconstructionJob
+        IJobParallelFor, IParticleReconstructionJob<SimpleParticle>
     {
-        [ReadOnly] public ComponentDataArray<Particle> Particles;
-        [ReadOnly] public ComponentDataArray<Position> Positions;
-        [ReadOnly] public ComponentDataArray<Triangle> Triangles;
-        [ReadOnly] public SharedComponentDataArray<SimpleParticle> Variants;
+        [ReadOnly] ComponentDataArray<Particle> Particles;
+        [ReadOnly] ComponentDataArray<Position> Positions;
+        [ReadOnly] ComponentDataArray<Triangle> Triangles;
 
-        [NativeDisableUnsafePtrRestriction] public void* Vertices;
-        [NativeDisableUnsafePtrRestriction] public void* Normals;
+        [NativeDisableUnsafePtrRestriction] void* Vertices;
+        [NativeDisableUnsafePtrRestriction] void* Normals;
 
-        public NativeCounter.Concurrent Counter;
+        SimpleParticle Variant;
+        NativeCounter.Concurrent Counter;
 
         public void Initialize(
+            SimpleParticle variant,
             ComponentGroup group,
             UnityEngine.Vector3 [] vertices,
             UnityEngine.Vector3 [] normals,
@@ -31,9 +32,9 @@ namespace Firefly
             Particles = group.GetComponentDataArray<Particle>();
             Positions = group.GetComponentDataArray<Position>();
             Triangles = group.GetComponentDataArray<Triangle>();
-            Variants = group.GetSharedComponentDataArray<SimpleParticle>();
             Vertices = UnsafeUtility.AddressOf(ref vertices[0]);
             Normals = UnsafeUtility.AddressOf(ref normals[0]);
+            Variant = variant;
             Counter = counter;
         }
 
@@ -42,14 +43,18 @@ namespace Firefly
             var particle = Particles[index];
             var face = Triangles[index];
 
+            var life = particle.LifeRandom * Variant.Life;
+            var time = particle.Time;
+            var scale = 1 - time / life;
+
             var fwd = particle.Velocity + 1e-4f;
             var axis = math.normalize(math.cross(fwd, face.Vertex1));
             var rot = math.axisAngle(axis, particle.Time * 3);
 
             var pos = Positions[index].Value;
-            var v1 = pos + math.mul(rot, face.Vertex1);
-            var v2 = pos + math.mul(rot, face.Vertex2);
-            var v3 = pos + math.mul(rot, face.Vertex3);
+            var v1 = pos + math.mul(rot, face.Vertex1) * scale;
+            var v2 = pos + math.mul(rot, face.Vertex2) * scale;
+            var v3 = pos + math.mul(rot, face.Vertex3) * scale;
 
             var i = Counter.Increment() * 3;
             UnsafeUtility.WriteArrayElement(Vertices, i + 0, v1);
