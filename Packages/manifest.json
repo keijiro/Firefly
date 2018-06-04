@@ -1,8 +1,8 @@
 {
   "dependencies": {
     "com.unity.incrementalcompiler": "0.0.42-preview.1",
-    "com.unity.entities": "0.0.12-preview.4",
-    "com.unity.postprocessing": "2.0.5-preview"
+    "com.unity.entities": "0.0.12-preview.5",
+    "com.unity.postprocessing": "2.0.7-preview"
   },
   "registry": "https://packages.unity.com"
 }
