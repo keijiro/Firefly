@@ -46,8 +46,7 @@ namespace Firefly
             var face = _triangles[index];
 
             // Scaling with simple lerp
-            var time = particle.Time;
-            var scale = 1 - time / (_variant.Life * particle.LifeRandom);
+            var scale = 1 - particle.Time / (_variant.Life * particle.LifeRandom);
 
             // Random rotation
             var fwd = particle.Velocity + 1e-4f;

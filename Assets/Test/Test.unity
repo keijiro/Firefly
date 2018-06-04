@@ -850,6 +850,7 @@ MonoBehaviour:
   m_SerializedData:
     Weight: 1
     Life: 6
+    Size: 0.015
 --- !u!114 &1915976097
 MonoBehaviour:
   m_ObjectHideFlags: 0

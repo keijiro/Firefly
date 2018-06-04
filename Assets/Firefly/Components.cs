@@ -82,6 +82,8 @@ namespace Firefly
 
         public float Life;
         public float GetLife() { return Life; }
+
+        public float Size;
     }
 
     #endregion
