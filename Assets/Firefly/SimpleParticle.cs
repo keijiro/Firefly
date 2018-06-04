@@ -11,15 +11,15 @@ namespace Firefly
     unsafe struct SimpleReconstructionJob :
         IJobParallelFor, IParticleReconstructionJob<SimpleParticle>
     {
-        [ReadOnly] ComponentDataArray<Particle> Particles;
-        [ReadOnly] ComponentDataArray<Position> Positions;
-        [ReadOnly] ComponentDataArray<Triangle> Triangles;
+        [ReadOnly] ComponentDataArray<Particle> _particles;
+        [ReadOnly] ComponentDataArray<Position> _positions;
+        [ReadOnly] ComponentDataArray<Triangle> _triangles;
 
-        [NativeDisableUnsafePtrRestriction] void* Vertices;
-        [NativeDisableUnsafePtrRestriction] void* Normals;
+        [NativeDisableUnsafePtrRestriction] void* _vertices;
+        [NativeDisableUnsafePtrRestriction] void* _normals;
 
-        SimpleParticle Variant;
-        NativeCounter.Concurrent Counter;
+        SimpleParticle _variant;
+        NativeCounter.Concurrent _counter;
 
         public void Initialize(
             SimpleParticle variant,
@@ -29,42 +29,49 @@ namespace Firefly
             NativeCounter.Concurrent counter
         )
         {
-            Particles = group.GetComponentDataArray<Particle>();
-            Positions = group.GetComponentDataArray<Position>();
-            Triangles = group.GetComponentDataArray<Triangle>();
-            Vertices = UnsafeUtility.AddressOf(ref vertices[0]);
-            Normals = UnsafeUtility.AddressOf(ref normals[0]);
-            Variant = variant;
-            Counter = counter;
+            _particles = group.GetComponentDataArray<Particle>();
+            _positions = group.GetComponentDataArray<Position>();
+            _triangles = group.GetComponentDataArray<Triangle>();
+
+            _vertices = UnsafeUtility.AddressOf(ref vertices[0]);
+            _normals = UnsafeUtility.AddressOf(ref normals[0]);
+
+            _variant = variant;
+            _counter = counter;
         }
 
         public void Execute(int index)
         {
-            var particle = Particles[index];
-            var face = Triangles[index];
+            var particle = _particles[index];
+            var face = _triangles[index];
 
-            var life = particle.LifeRandom * Variant.Life;
+            // Scaling with simple lerp
             var time = particle.Time;
-            var scale = 1 - time / life;
+            var scale = 1 - time / (_variant.Life * particle.LifeRandom);
 
+            // Random rotation
             var fwd = particle.Velocity + 1e-4f;
             var axis = math.normalize(math.cross(fwd, face.Vertex1));
-            var rot = math.axisAngle(axis, particle.Time * 3);
+            var avel = Random.Value01(particle.ID + 10000) * 8;
+            var rot = math.axisAngle(axis, particle.Time * avel);
 
-            var pos = Positions[index].Value;
+            // Vertex positions
+            var pos = _positions[index].Value;
             var v1 = pos + math.mul(rot, face.Vertex1) * scale;
             var v2 = pos + math.mul(rot, face.Vertex2) * scale;
             var v3 = pos + math.mul(rot, face.Vertex3) * scale;
 
-            var i = Counter.Increment() * 3;
-            UnsafeUtility.WriteArrayElement(Vertices, i + 0, v1);
-            UnsafeUtility.WriteArrayElement(Vertices, i + 1, v2);
-            UnsafeUtility.WriteArrayElement(Vertices, i + 2, v3);
+            // Vertex output
+            var i = _counter.Increment() * 3;
+            UnsafeUtility.WriteArrayElement(_vertices, i + 0, v1);
+            UnsafeUtility.WriteArrayElement(_vertices, i + 1, v2);
+            UnsafeUtility.WriteArrayElement(_vertices, i + 2, v3);
 
+            // Normal output
             var n = math.normalize(math.cross(v2 - v1, v3 - v1));
-            UnsafeUtility.WriteArrayElement(Normals, i + 0, n);
-            UnsafeUtility.WriteArrayElement(Normals, i + 1, n);
-            UnsafeUtility.WriteArrayElement(Normals, i + 2, n);
+            UnsafeUtility.WriteArrayElement(_normals, i + 0, n);
+            UnsafeUtility.WriteArrayElement(_normals, i + 1, n);
+            UnsafeUtility.WriteArrayElement(_normals, i + 2, n);
         }
     }
 
