@@ -61,7 +61,7 @@ namespace Firefly
             var ax = math.cross(new float3(0, 1, 0), az);
             var ay = math.cross(az, ax);
 
-            var freq = 8 + p.Random * 20;
+            var freq = 8 + Random.Value01(p.ID) * 20;
             var flap = math.sin(freq * p.Time);
 
             ax = math.normalize(ax) * size;

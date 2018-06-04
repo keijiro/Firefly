@@ -49,8 +49,9 @@ namespace Firefly
     struct Particle : IComponentData
     {
         public float3 Velocity;
+        public uint ID;
+        public float LifeRandom;
         public float Time;
-        public float Random;
     }
 
     interface IParticleVariant

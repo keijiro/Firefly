@@ -25,6 +25,9 @@ namespace Firefly
         // Allocation tracking
         List<Renderer> _toBeDisposed = new List<Renderer>();
 
+        // Used to give IDs to particles.
+        uint _indexCounter;
+
         protected override void OnCreateManager(int capacity)
         {
             _instanceGroup = GetComponentGroup(
@@ -190,7 +193,9 @@ namespace Firefly
         {
             [ReadOnly, NativeDisableUnsafePtrRestriction] public void* Vertices;
             [ReadOnly, NativeDisableUnsafePtrRestriction] public void* Indices;
-            [ReadOnly] public float4x4 Transform;
+
+            public float4x4 Transform;
+            public uint IndexOffset;
 
             public NativeArray<Triangle> Triangles;
             public NativeArray<Position> Positions;
@@ -223,7 +228,8 @@ namespace Firefly
                 };
 
                 Particles[i] = new Particle {
-                    Random = Random.Value01((uint)i)
+                    ID = (uint)i + IndexOffset,
+                    LifeRandom = Random.Value01((uint)i) * 0.8f + 0.2f
                 };
             }
         }
@@ -242,11 +248,13 @@ namespace Firefly
                 Vertices = UnsafeUtility.AddressOf(ref vertices[0]),
                 Indices = UnsafeUtility.AddressOf(ref indices[0]),
                 Transform = transform.localToWorldMatrix,
+                IndexOffset = _indexCounter,
                 Triangles = new NativeArray<Triangle>(entityCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory),
                 Positions = new NativeArray<Position>(entityCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory),
                 Particles = new NativeArray<Particle>(entityCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory)
             };
             var jobHandle = job.Schedule(entityCount, 32);
+            _indexCounter += (uint)entityCount;
 
             // We want to do entity instantiation in parallel with the jobs,
             // so let the jobs kick in immediately.
