@@ -2,13 +2,14 @@
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
-using Unity.Transforms;
 using Unity.Mathematics;
+using Unity.Transforms;
 
 namespace Firefly
 {
     [ComputeJobOptimization]
-    unsafe struct ButterflyReconstructionJob : IJobParallelFor, IParticleReconstructionJob
+    unsafe struct ButterflyReconstructionJob :
+        IJobParallelFor, IParticleReconstructionJob
     {
         [ReadOnly] public ComponentDataArray<Particle> Particles;
         [ReadOnly] public ComponentDataArray<Position> Positions;
@@ -22,8 +23,8 @@ namespace Firefly
 
         public void Initialize(
             ComponentGroup group,
-            UnityEngine.Vector3 [] vertices,
-            UnityEngine.Vector3 [] normals,
+            UnityEngine.Vector3[] vertices,
+            UnityEngine.Vector3[] normals,
             NativeCounter.Concurrent counter
         )
         {
@@ -96,9 +97,9 @@ namespace Firefly
         }
     }
 
-    sealed class ButterflyParticleExpirationSystem
-        : ParticleExpirationSystemBase<ButterflyParticle> {}
+    sealed class ButterflyParticleExpirationSystem :
+        ParticleExpirationSystemBase<ButterflyParticle> {}
 
-    sealed class ButterflyParticleReconstructionSystem
-        : ParticleReconstructionSystemBase<ButterflyParticle, ButterflyReconstructionJob> {}
+    sealed class ButterflyParticleReconstructionSystem :
+        ParticleReconstructionSystemBase<ButterflyParticle, ButterflyReconstructionJob> {}
 }
