@@ -7,7 +7,7 @@ namespace Firefly
 {
     sealed class ParticleExpirationBarrier : BarrierSystem {}
 
-    [ComputeJobOptimization]
+    [Unity.Burst.BurstCompile]
     struct ParticleExpirationJob : IJob
     {
         [ReadOnly] public EntityArray Entities;

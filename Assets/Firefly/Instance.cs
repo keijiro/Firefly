@@ -188,7 +188,7 @@ namespace Firefly
         // is to optimize the vector math operations with Burst -- We don't
         // expect that parallelism gives a big performance boost.
 
-        [ComputeJobOptimization]
+        [Unity.Burst.BurstCompile]
         unsafe struct InitDataJob : IJobParallelFor
         {
             [ReadOnly, NativeDisableUnsafePtrRestriction] public void* Vertices;

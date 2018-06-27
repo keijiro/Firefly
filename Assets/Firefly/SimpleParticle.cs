@@ -7,7 +7,7 @@ using Unity.Transforms;
 
 namespace Firefly
 {
-    [ComputeJobOptimization]
+    [Unity.Burst.BurstCompile]
     unsafe struct SimpleReconstructionJob :
         IJobParallelFor, IParticleReconstructionJob<SimpleParticle>
     {

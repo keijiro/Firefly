@@ -8,7 +8,7 @@ namespace Firefly
 {
     sealed class NoiseEffectorSystem : JobComponentSystem
     {
-        [ComputeJobOptimization]
+        [Unity.Burst.BurstCompile]
         struct AnimationJob : IJobProcessComponentData<Particle, Position>
         {
             public NoiseEffector Effector;
