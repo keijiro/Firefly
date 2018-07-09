@@ -323,7 +323,7 @@ namespace Firefly
             [ReadOnly] public SharedComponentDataArray<Instance> Instances;
             [ReadOnly] public SharedComponentDataArray<RenderSettings> RenderSettings;
             [ReadOnly] public ComponentArray<UnityEngine.Transform> Transforms;
-            public int Length;
+            public readonly int Length;
         }
 
         [Inject] Group _group;

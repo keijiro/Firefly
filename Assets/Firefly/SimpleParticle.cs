@@ -52,7 +52,7 @@ namespace Firefly
             var fwd = particle.Velocity + 1e-4f;
             var axis = math.normalize(math.cross(fwd, face.Vertex1));
             var avel = Random.Value01(particle.ID + 10000) * 8;
-            var rot = math.axisAngle(axis, particle.Time * avel);
+            var rot = quaternion.axisAngle(axis, particle.Time * avel);
 
             // Vertex positions
             var pos = _positions[index].Value;

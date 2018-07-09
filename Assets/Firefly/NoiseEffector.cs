@@ -53,7 +53,7 @@ namespace Firefly
         {
             [ReadOnly] public ComponentDataArray<NoiseEffector> Effectors;
             [ReadOnly] public ComponentArray<UnityEngine.Transform> Transforms;
-            public int Length;
+            public readonly int Length;
         }
 
         [Inject] Group _group;
