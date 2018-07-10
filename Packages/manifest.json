@@ -1,7 +1,6 @@
 {
   "dependencies": {
     "com.unity.entities": "0.0.12-preview.8",
-    "com.unity.incrementalcompiler": "0.0.42-preview.1",
     "com.unity.package-manager-ui": "1.9.11",
     "com.unity.postprocessing": "2.0.7-preview",
     "com.unity.modules.animation": "1.0.0",
