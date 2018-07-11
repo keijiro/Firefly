@@ -26,9 +26,9 @@ namespace Firefly
     [System.Serializable]
     struct RenderSettings : ISharedComponentData
     {
-        public UnityEngine.Material Material;
         public UnityEngine.Rendering.ShadowCastingMode CastShadows;
         public bool ReceiveShadows;
+        public UnityEngine.Material Material;
     }
 
     struct Renderer : ISharedComponentData
